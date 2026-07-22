@@ -1,3 +1,24 @@
 const mongoose=require('mongoose')
 
-const Patient
+const PatientSchema = new mongoose.Schema({  
+    clinicId: { type: "ObjectId", ref: "Clinic" },  
+    name: String,  
+    phone: String,  
+    email: String,  
+    age: Number,  
+    gender: { type: String, enum: ["male", "female", "other"] },  
+    bloodGroup: String,  
+    allergies: [String],  
+    medicalConditions: [String],  
+    notes: String,  
+    status: { type: String, enum: ["cleared", "uncleared"] },  
+    toothChart: [    {      
+        toothNumber: Number,      
+        condition: String,      
+        treatmentId: { type: "ObjectId", ref: "Treatment" },      
+        notes: String,    },  ],  
+        attachments: [{ url: String, type: String, uploadedAt: Date }],  
+    },{timestamps:true});
+
+const PatientModel=mongoose.model('Patient',PatientSchema)
+module.exports=PatientModel
