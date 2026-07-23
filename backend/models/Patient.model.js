@@ -20,5 +20,8 @@ const PatientSchema = new mongoose.Schema({
         attachments: [{ url: String, type: String, uploadedAt: Date }],  
     },{timestamps:true});
 
+PatientSchema.index({ clinicId: 1, name: 1 });
+PatientSchema.index({ clinicId: 1, phone: 1 });
+
 const PatientModel=mongoose.model('Patient',PatientSchema)
 module.exports=PatientModel
