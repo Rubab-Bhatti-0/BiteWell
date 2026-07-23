@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  ArrowLeft, Edit, Plus, Trash2, Download, Paperclip, FileText, 
-  Image as ImageIcon, Calendar, CreditCard, ChevronRight, CheckCircle2, AlertTriangle, Clock
+  ArrowLeft, Edit, Trash2, Download, Paperclip, FileText,
+  Image as ImageIcon, Calendar, CreditCard, Clock
 } from 'lucide-react';
 import ToothChart from './ToothChart';
+import { apiFetch, assetUrl } from '../lib/api';
 
 export default function PatientProfile({ patientId, onBack, onAlert }) {
   const [patient, setPatient] = useState(null);
@@ -23,16 +24,14 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
   // File upload state
   const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
-    fetchPatientData();
-    fetchTreatmentsCatalog();
-  }, [patientId]);
-
-  const fetchPatientData = async () => {
+  const fetchPatientData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/patients/${patientId}`);
-      if (!res.ok) throw new Error('Failed to fetch patient details.');
+      const res = await apiFetch(`/api/patients/${patientId}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to fetch patient details.');
+      }
       const data = await res.json();
       setPatient(data);
       setEditForm({
@@ -50,18 +49,23 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId, onAlert]);
 
-  const fetchTreatmentsCatalog = async () => {
+  const fetchTreatmentsCatalog = useCallback(async () => {
     try {
-      const res = await fetch('/api/treatments?isActive=true');
+      const res = await apiFetch('/api/treatments?isActive=true');
       if (!res.ok) throw new Error('Failed to load treatments catalog.');
       const data = await res.json();
       setTreatmentsCatalog(data);
     } catch (err) {
-      console.error(err);
+      onAlert({ type: 'danger', message: err.message });
     }
-  };
+  }, [onAlert]);
+
+  useEffect(() => {
+    fetchPatientData();
+    fetchTreatmentsCatalog();
+  }, [fetchPatientData, fetchTreatmentsCatalog]);
 
   // Handle Basic Details Submit
   const handleEditSubmit = async (e) => {
@@ -72,7 +76,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     }
 
     try {
-      const res = await fetch(`/api/patients/${patientId}`, {
+      const res = await apiFetch(`/api/patients/${patientId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -98,6 +102,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
   // Allergies & Conditions Tag management
   const addAllergy = async (e) => {
     if (e.key === 'Enter' && allergyInput.trim() !== '') {
+      e.preventDefault();
       const newAllergies = [...patient.allergies, allergyInput.trim()];
       await updateMedicalTags(newAllergies, patient.medicalConditions);
       setAllergyInput('');
@@ -111,6 +116,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
 
   const addCondition = async (e) => {
     if (e.key === 'Enter' && conditionInput.trim() !== '') {
+      e.preventDefault();
       const newConditions = [...patient.medicalConditions, conditionInput.trim()];
       await updateMedicalTags(patient.allergies, newConditions);
       setConditionInput('');
@@ -124,7 +130,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
 
   const updateMedicalTags = async (allergies, medicalConditions) => {
     try {
-      const res = await fetch(`/api/patients/${patientId}/medical-info`, {
+      const res = await apiFetch(`/api/patients/${patientId}/medical-info`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ allergies, medicalConditions })
@@ -159,7 +165,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     formData.append('attachment', file);
 
     try {
-      const res = await fetch(`/api/patients/${patientId}/attachments`, {
+      const res = await apiFetch(`/api/patients/${patientId}/attachments`, {
         method: 'POST',
         body: formData
       });
@@ -183,7 +189,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
   const handleDeleteAttachment = async (attachmentId) => {
     if (!window.confirm('Delete this attachment permanently?')) return;
     try {
-      const res = await fetch(`/api/patients/${patientId}/attachments/${attachmentId}`, {
+      const res = await apiFetch(`/api/patients/${patientId}/attachments/${attachmentId}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to delete attachment.');
@@ -272,7 +278,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
             <div className="grid grid-cols-3 w-full border-y border-slate-100 dark:border-slate-700 py-4 mb-6 text-center">
               <div className="border-r border-slate-100 dark:border-slate-700">
                 <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Age</span>
-                <span className="text-md font-bold text-slate-800 dark:text-slate-200">{patient.age || '—'}</span>
+                <span className="text-md font-bold text-slate-800 dark:text-slate-200">{patient.age ?? '—'}</span>
               </div>
               <div className="border-r border-slate-100 dark:border-slate-700">
                 <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Blood</span>
@@ -381,6 +387,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                 {uploading ? 'Uploading...' : 'Upload File'}
                 <input
                   type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
                   onChange={handleFileUpload}
                   disabled={uploading}
                   className="hidden"
@@ -398,6 +405,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {patient.attachments.map((att) => {
                   const isImage = att.type === 'image';
+                  const attachmentUrl = assetUrl(att.url);
                   return (
                     <div 
                       key={att._id} 
@@ -409,7 +417,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                         </div>
                         <div className="min-w-0">
                           <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                            {att.url.split('/').pop()}
+                            {att.originalName || att.url.split('/').pop()}
                           </span>
                           <span className="text-[10px] text-slate-400 uppercase tracking-wide">
                             {new Date(att.uploadedAt).toLocaleDateString()}
@@ -418,7 +426,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                       </div>
                       <div className="flex items-center gap-1.5 ml-3">
                         <a
-                          href={`/${att.url}`}
+                          href={attachmentUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 text-slate-500 hover:text-[#0A567D] hover:bg-slate-100 rounded-lg cursor-pointer"

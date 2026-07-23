@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   LayoutDashboard, Users, HeartHandshake, FileBarChart, Bell, Sun, Moon, 
-  Menu, X, Calendar, CreditCard, Send, Settings, UserCheck, ShieldAlert, CheckCircle2, Info
+  Menu, Calendar, CreditCard, Send, Settings, ShieldAlert, CheckCircle2, Info, AlertTriangle
 } from 'lucide-react';
 
 // Import subcomponents
@@ -30,7 +30,7 @@ export default function App() {
     }
   }, [darkMode]);
 
-  const addAlert = ({ type = 'info', message }) => {
+  const addAlert = useCallback(({ type = 'info', message }) => {
     const id = Date.now();
     setAlerts(prev => [...prev, { id, type, message }]);
     
@@ -38,11 +38,11 @@ export default function App() {
     setTimeout(() => {
       setAlerts(prev => prev.filter(al => al.id !== id));
     }, 4000);
-  };
+  }, []);
 
-  const removeAlert = (id) => {
+  const removeAlert = useCallback((id) => {
     setAlerts(prev => prev.filter(al => al.id !== id));
-  };
+  }, []);
 
   const handleNavigate = (tab) => {
     setActiveTab(tab);
@@ -68,7 +68,13 @@ export default function App() {
 
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard onNavigate={handleNavigate} onAlert={addAlert} />;
+        return (
+          <Dashboard
+            onNavigate={handleNavigate}
+            onViewPatient={handleViewPatient}
+            onAlert={addAlert}
+          />
+        );
       case 'patients':
         return <PatientList onViewPatient={handleViewPatient} onAlert={addAlert} />;
       case 'treatments':
@@ -76,7 +82,13 @@ export default function App() {
       case 'reports':
         return <Reports onAlert={addAlert} />;
       default:
-        return <Dashboard onNavigate={handleNavigate} onAlert={addAlert} />;
+        return (
+          <Dashboard
+            onNavigate={handleNavigate}
+            onViewPatient={handleViewPatient}
+            onAlert={addAlert}
+          />
+        );
     }
   };
 

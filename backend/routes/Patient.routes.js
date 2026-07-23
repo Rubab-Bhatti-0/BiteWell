@@ -7,6 +7,7 @@ const fs = require('fs');
 const {
   createPatient,
   getPatients,
+  getPatientsForExport,
   getPatientById,
   updatePatient,
   deletePatient,
@@ -55,6 +56,7 @@ const upload = multer({
 
 // Summary stats aggregation (must be declared BEFORE /:id)
 router.get('/summary', getPatientsSummary);
+router.get('/export', getPatientsForExport);
 
 // Base CRUD routes
 router.post('/', createPatient);

@@ -1,115 +1,126 @@
+const mongoose = require('mongoose');
 const Treatment = require('../models/Treatment.model');
 const scopedQuery = require('../utils/scopedQuery');
 
-// POST /api/treatments - create a treatment
+const asyncHandler = (handler) => (req, res, next) => (
+  Promise.resolve(handler(req, res, next)).catch(next)
+);
+
+const httpError = (statusCode, message) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const assertObjectId = (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw httpError(400, 'Invalid treatment ID format.');
+  }
+};
+
+const parseCost = (value) => {
+  const cost = Number(value);
+  if (!Number.isFinite(cost) || cost <= 0) {
+    throw httpError(400, 'Default cost must be a positive number.');
+  }
+  return cost;
+};
+
+// POST /api/treatments
 const createTreatment = async (req, res) => {
-  try {
-    const { name, defaultCost, category, isActive } = req.body;
-
-    // Validation
-    if (!name || name.trim() === '') {
-      return res.status(400).json({ error: 'Treatment name is required and cannot be empty.' });
-    }
-
-    if (defaultCost === undefined || defaultCost === null || isNaN(defaultCost) || Number(defaultCost) <= 0) {
-      return res.status(400).json({ error: 'Default cost must be a positive number.' });
-    }
-
-    const treatment = new Treatment({
-      clinicId: req.user.clinicId,
-      name: name.trim(),
-      defaultCost: Number(defaultCost),
-      category: category || 'General',
-      isActive: isActive !== undefined ? isActive : true
-    });
-
-    await treatment.save();
-    res.status(201).json(treatment);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  if (typeof req.body.name !== 'string' || !req.body.name.trim()) {
+    throw httpError(400, 'Treatment name is required.');
   }
+  if (req.body.defaultCost === undefined || req.body.defaultCost === null) {
+    throw httpError(400, 'Default cost is required.');
+  }
+
+  const treatment = await Treatment.create({
+    clinicId: req.user.clinicId,
+    name: req.body.name.trim(),
+    defaultCost: parseCost(req.body.defaultCost),
+    category: typeof req.body.category === 'string' && req.body.category.trim()
+      ? req.body.category.trim()
+      : 'General',
+    isActive: req.body.isActive ?? true
+  });
+
+  res.status(201).json(treatment);
 };
 
-// GET /api/treatments - list all treatments for the clinic
+// GET /api/treatments
 const getTreatments = async (req, res) => {
-  try {
-    const extraFilter = {};
-    if (req.query.isActive !== undefined) {
-      extraFilter.isActive = req.query.isActive === 'true';
+  const filter = {};
+  if (req.query.isActive !== undefined) {
+    if (!['true', 'false'].includes(req.query.isActive)) {
+      throw httpError(400, 'isActive must be true or false.');
     }
-
-    const treatments = await scopedQuery(req, Treatment, extraFilter);
-    res.status(200).json(treatments);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    filter.isActive = req.query.isActive === 'true';
   }
+
+  const treatments = await scopedQuery(req, Treatment, filter)
+    .sort({ isActive: -1, name: 1 })
+    .lean();
+
+  res.json(treatments);
 };
 
-// PUT /api/treatments/:id - edit treatment name/cost/category/isActive
+// PUT /api/treatments/:id
 const updateTreatment = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, defaultCost, category, isActive } = req.body;
+  assertObjectId(req.params.id);
+  const treatment = await scopedQuery.findOne(req, Treatment, { _id: req.params.id });
 
-    // Check ownership first
-    const treatment = await Treatment.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!treatment) {
-      return res.status(404).json({ error: 'Treatment not found or unauthorized.' });
-    }
-
-    // Validation if field is provided
-    if (name !== undefined) {
-      if (name.trim() === '') {
-        return res.status(400).json({ error: 'Treatment name cannot be empty.' });
-      }
-      treatment.name = name.trim();
-    }
-
-    if (defaultCost !== undefined) {
-      if (isNaN(defaultCost) || Number(defaultCost) <= 0) {
-        return res.status(400).json({ error: 'Default cost must be a positive number.' });
-      }
-      treatment.defaultCost = Number(defaultCost);
-    }
-
-    if (category !== undefined) {
-      treatment.category = category;
-    }
-
-    if (isActive !== undefined) {
-      treatment.isActive = isActive;
-    }
-
-    await treatment.save();
-    res.status(200).json(treatment);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  if (!treatment) {
+    throw httpError(404, 'Treatment not found.');
   }
+
+  if (req.body.name !== undefined) {
+    if (typeof req.body.name !== 'string' || !req.body.name.trim()) {
+      throw httpError(400, 'Treatment name cannot be empty.');
+    }
+    treatment.name = req.body.name.trim();
+  }
+  if (req.body.defaultCost !== undefined) {
+    treatment.defaultCost = parseCost(req.body.defaultCost);
+  }
+  if (req.body.category !== undefined) {
+    if (typeof req.body.category !== 'string' || !req.body.category.trim()) {
+      throw httpError(400, 'Treatment category cannot be empty.');
+    }
+    treatment.category = req.body.category.trim();
+  }
+  if (req.body.isActive !== undefined) {
+    if (typeof req.body.isActive !== 'boolean') {
+      throw httpError(400, 'isActive must be a boolean.');
+    }
+    treatment.isActive = req.body.isActive;
+  }
+
+  await treatment.save();
+  res.json(treatment);
 };
 
-// DELETE /api/treatments/:id - soft-delete treatment by setting isActive: false
+// DELETE /api/treatments/:id (soft delete)
 const deleteTreatment = async (req, res) => {
-  try {
-    const { id } = req.params;
+  assertObjectId(req.params.id);
+  const treatment = await scopedQuery.findOne(req, Treatment, { _id: req.params.id });
 
-    // Find and update active status
-    const treatment = await Treatment.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!treatment) {
-      return res.status(404).json({ error: 'Treatment not found or unauthorized.' });
-    }
-
-    treatment.isActive = false;
-    await treatment.save();
-
-    res.status(200).json({ message: 'Treatment soft-deleted successfully.', treatment });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  if (!treatment) {
+    throw httpError(404, 'Treatment not found.');
   }
+
+  treatment.isActive = false;
+  await treatment.save();
+
+  res.json({
+    message: 'Treatment deactivated successfully.',
+    treatment
+  });
 };
 
 module.exports = {
-  createTreatment,
-  getTreatments,
-  updateTreatment,
-  deleteTreatment
+  createTreatment: asyncHandler(createTreatment),
+  getTreatments: asyncHandler(getTreatments),
+  updateTreatment: asyncHandler(updateTreatment),
+  deleteTreatment: asyncHandler(deleteTreatment)
 };
