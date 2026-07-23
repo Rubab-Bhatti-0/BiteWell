@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../lib/api';
 const SVG_PATH_TOOTH = "M12 2C10.3 2 9 3.3 9 5c0 .3.1.5.2.8C8.5 6.1 8 6.9 8 8c0 1.5 1 3.5 1.5 5.5.3 1.2.5 2.5.5 3.5 0 2.2 1.8 4 4 4s4-1.8 4-4c0-1-.2-2.3-.5-3.5C18 11.5 19 9.5 19 8c0-1.1-.5-1.9-1.2-2.2.1-.3.2-.5.2-.8 0-1.7-1.3-3-3-3h-3zm-1 3c0-.6.4-1 1-1h1c.6 0 1 .4 1 1s-.4 1-1 1h-1c-.6 0-1-.4-1-1z";
 
 export default function ToothChart({ patientId, initialChart = [], treatmentsCatalog = [], onSave, onAlert }) {
@@ -57,7 +58,7 @@ export default function ToothChart({ patientId, initialChart = [], treatmentsCat
         notes: t.notes
       }));
 
-      const res = await fetch(`/api/patients/${patientId}/tooth-chart`, {
+      const res = await apiFetch(`/api/patients/${patientId}/tooth-chart`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

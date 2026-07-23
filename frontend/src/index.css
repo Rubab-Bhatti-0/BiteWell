@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@custom-variant dark (&:where(.dark, .dark *));
 @theme {
   /* Brand colors */
   --color-brand-primary: #0A567D;
@@ -128,4 +128,87 @@ body {
   100% {
     background-position: -200% 0;
   }
+}
+/* Ensure typed form text is visible in both themes */
+input:not([type='checkbox']):not([type='radio']),
+textarea,
+select {
+  color: #0F172A;
+  caret-color: #00A3E1;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94A3B8;
+  opacity: 1;
+}
+
+select option {
+  background-color: #FFFFFF;
+  color: #0F172A;
+}
+
+.dark input:not([type='checkbox']):not([type='radio']),
+.dark textarea,
+.dark select {
+  color: #FFFFFF;
+  caret-color: #00A3E1;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748B;
+  opacity: 1;
+}
+
+.dark select option {
+  background-color: #0F172A;
+  color: #FFFFFF;
+}
+
+/* Fix browser autofill text */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0F172A;
+  caret-color: #00A3E1;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #FFFFFF;
+}
+/* FINAL FORM TEXT VISIBILITY FIX */
+html:not(.dark) input,
+html:not(.dark) textarea,
+html:not(.dark) select {
+  color: #0F172A !important;
+  -webkit-text-fill-color: #0F172A !important;
+  caret-color: #00A3E1 !important;
+  opacity: 1 !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  caret-color: #00A3E1 !important;
+  opacity: 1 !important;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #94A3B8 !important;
+  -webkit-text-fill-color: #94A3B8 !important;
+  opacity: 1 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748B !important;
+  -webkit-text-fill-color: #64748B !important;
+  opacity: 1 !important;
 }

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Eye, EyeOff, X } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 export default function TreatmentCatalog({ onAlert }) {
   const [treatments, setTreatments] = useState([]);
@@ -12,15 +13,11 @@ export default function TreatmentCatalog({ onAlert }) {
   const [form, setForm] = useState({ name: '', defaultCost: '', category: 'General', isActive: true });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchTreatments();
-  }, [filterActiveOnly]);
-
-  const fetchTreatments = async () => {
+  const fetchTreatments = useCallback(async () => {
     setLoading(true);
     try {
       const url = filterActiveOnly ? '/api/treatments?isActive=true' : '/api/treatments';
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       if (!res.ok) throw new Error('Failed to load treatment catalog.');
       const data = await res.json();
       setTreatments(data);
@@ -29,7 +26,11 @@ export default function TreatmentCatalog({ onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterActiveOnly, onAlert]);
+
+  useEffect(() => {
+    fetchTreatments();
+  }, [fetchTreatments]);
 
   const handleOpenCreate = () => {
     setEditingTreatment(null);
@@ -72,7 +73,7 @@ export default function TreatmentCatalog({ onAlert }) {
       const method = editingTreatment ? 'PUT' : 'POST';
       const url = editingTreatment ? `/api/treatments/${editingTreatment._id}` : '/api/treatments';
       
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,7 +105,7 @@ export default function TreatmentCatalog({ onAlert }) {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to deactivate (soft-delete) this treatment? It will remain in historic charts.')) return;
     try {
-      const res = await fetch(`/api/treatments/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/treatments/${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || 'Failed to deactivate treatment.');

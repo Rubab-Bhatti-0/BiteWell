@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Search, UserPlus, FileText, Edit, Trash2, ChevronLeft, ChevronRight, AlertCircle, X, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, UserPlus, FileText, Edit, Trash2, ChevronLeft, ChevronRight, ShieldAlert } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 export default function PatientList({ onViewPatient, onAlert }) {
   const [patients, setPatients] = useState([]);
@@ -37,12 +38,7 @@ export default function PatientList({ onViewPatient, onAlert }) {
     return () => clearTimeout(handler);
   }, [search]);
 
-  // Load patients list on query updates
-  useEffect(() => {
-    fetchPatients();
-  }, [debouncedSearch, statusTab, page]);
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -51,9 +47,13 @@ export default function PatientList({ onViewPatient, onAlert }) {
         page: page.toString(),
         limit: limit.toString()
       });
-      const res = await fetch(`/api/patients?${queryParams}`);
+      const res = await apiFetch(`/api/patients?${queryParams}`);
       if (!res.ok) throw new Error('Failed to load patient records.');
       const data = await res.json();
+      if (page > data.pages) {
+        setPage(data.pages);
+        return;
+      }
       setPatients(data.data);
       setTotalPages(data.pages);
       setTotalCount(data.total);
@@ -62,7 +62,12 @@ export default function PatientList({ onViewPatient, onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, statusTab, page, onAlert]);
+
+  // Load patients list on query updates
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -82,7 +87,7 @@ export default function PatientList({ onViewPatient, onAlert }) {
       return;
     }
     // Phone format validation (simple check)
-    const phoneRegex = /^[+]?[0-9\s-]{7,15}$/;
+    const phoneRegex = /^\+?[\d\s()-]{7,30}$/;
     if (!phoneRegex.test(form.phone.trim())) {
       onAlert({ type: 'danger', message: 'Invalid phone number format. Please enter a valid number.' });
       return;
@@ -90,7 +95,7 @@ export default function PatientList({ onViewPatient, onAlert }) {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/patients', {
+      const res = await apiFetch('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -140,7 +145,7 @@ export default function PatientList({ onViewPatient, onAlert }) {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/patients/${editingPatient._id}`, {
+      const res = await apiFetch(`/api/patients/${editingPatient._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,8 +174,11 @@ export default function PatientList({ onViewPatient, onAlert }) {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const res = await fetch(`/api/patients/${deleteTarget._id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete patient record.');
+      const res = await apiFetch(`/api/patients/${deleteTarget._id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete patient record.');
+      }
       onAlert({ type: 'success', message: `Patient record for ${deleteTarget.name} deleted successfully.` });
       setDeleteTarget(null);
       fetchPatients();
@@ -297,7 +305,7 @@ export default function PatientList({ onViewPatient, onAlert }) {
                       {p.email || '—'}
                     </td>
                     <td className="py-4 px-4 capitalize">
-                      {p.age ? `${p.age} yrs` : '—'} / <span className="text-slate-400">{p.gender}</span>
+                      {p.age !== undefined ? `${p.age} yrs` : '—'} / <span className="text-slate-400">{p.gender}</span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       {p.status === 'cleared' ? (

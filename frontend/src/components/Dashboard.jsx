@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Users, CheckCircle2, AlertCircle, TrendingUp, DollarSign, Calendar, Clock, 
-  ArrowUpRight, ArrowDownRight, Plus, CreditCard, Activity, ArrowRight
+  Users, CheckCircle2, AlertCircle, DollarSign, Calendar, Clock,
+  ArrowUpRight, Plus, Activity, ArrowRight, ChevronRight, Search
 } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
-export default function Dashboard({ onNavigate, onAlert }) {
+export default function Dashboard({ onNavigate, onViewPatient, onAlert }) {
   const [summary, setSummary] = useState({ total: 0, cleared: 0, uncleared: 0 });
   const [loading, setLoading] = useState(true);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
 
-  useEffect(() => {
-    fetchSummary();
-  }, []);
-
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/dashboard/patients-summary');
+      const res = await apiFetch('/api/patients/summary');
       if (!res.ok) throw new Error('Failed to load dashboard summary.');
       const data = await res.json();
       setSummary(data);
@@ -25,7 +25,50 @@ export default function Dashboard({ onNavigate, onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onAlert]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
+  useEffect(() => {
+    const query = patientSearch.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const params = new URLSearchParams({
+          search: query,
+          status: 'all',
+          page: '1',
+          limit: '5'
+        });
+        const response = await apiFetch(`/api/patients?${params}`, {
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error('Patient search failed.');
+        const result = await response.json();
+        setSearchResults(result.data);
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          onAlert({ type: 'danger', message: error.message });
+        }
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [patientSearch, onAlert]);
 
   // Mocked details to complete high fidelity dashboard
   const mockVisits = [
@@ -163,6 +206,43 @@ export default function Dashboard({ onNavigate, onAlert }) {
           <div>
             <h3 className="text-md font-bold text-slate-900 dark:text-white">Quick Actions</h3>
             <p className="text-xs text-slate-400 mb-5">Common patient operations</p>
+
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+              <input
+                type="search"
+                value={patientSearch}
+                onChange={(event) => setPatientSearch(event.target.value)}
+                placeholder="Search patients..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#00A3E1] dark:border-slate-700 dark:bg-slate-900"
+              />
+              {patientSearch.trim().length >= 2 && (
+                <div className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                  {searching ? (
+                    <p className="p-3 text-xs text-slate-400">Searching...</p>
+                  ) : searchResults.length === 0 ? (
+                    <p className="p-3 text-xs text-slate-400">No matching patient found.</p>
+                  ) : (
+                    searchResults.map((patient) => (
+                      <button
+                        key={patient._id}
+                        type="button"
+                        onClick={() => onViewPatient(patient._id)}
+                        className="flex w-full items-center justify-between border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
+                      >
+                        <span>
+                          <span className="block text-xs font-bold text-slate-800 dark:text-white">
+                            {patient.name}
+                          </span>
+                          <span className="block text-[10px] text-slate-400">{patient.phone}</span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             
             <div className="space-y-3">
               <button 

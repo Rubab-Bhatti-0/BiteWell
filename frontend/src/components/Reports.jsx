@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Download, FileSpreadsheet, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 export default function Reports({ onAlert }) {
   const [patients, setPatients] = useState([]);
@@ -23,11 +24,7 @@ export default function Reports({ onAlert }) {
     return () => clearTimeout(handler);
   }, [search]);
 
-  useEffect(() => {
-    fetchPatients();
-  }, [debouncedSearch, statusTab, page]);
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -36,7 +33,7 @@ export default function Reports({ onAlert }) {
         page: page.toString(),
         limit: limit.toString()
       });
-      const res = await fetch(`/api/patients?${queryParams}`);
+      const res = await apiFetch(`/api/patients?${queryParams}`);
       if (!res.ok) throw new Error('Failed to load report data.');
       const data = await res.json();
       setPatients(data.data);
@@ -47,7 +44,11 @@ export default function Reports({ onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, statusTab, page, onAlert]);
+
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
 
   const handleExportCSV = async () => {
     if (totalCount === 0) {
@@ -56,15 +57,12 @@ export default function Reports({ onAlert }) {
     }
 
     try {
-      // Fetch all pages for the export
       const queryParams = new URLSearchParams({
         search: debouncedSearch,
-        status: statusTab,
-        page: '1',
-        limit: '10000' // High limit to fetch all matching records
+        status: statusTab
       });
       
-      const res = await fetch(`/api/patients?${queryParams}`);
+      const res = await apiFetch(`/api/patients/export?${queryParams}`);
       if (!res.ok) throw new Error('Failed to fetch data for export.');
       const result = await res.json();
       const allPatients = result.data;
@@ -76,7 +74,7 @@ export default function Reports({ onAlert }) {
         p.name,
         p.phone,
         p.email || '',
-        p.age || '',
+        p.age ?? '',
         p.gender || '',
         p.bloodGroup || '',
         p.status,
@@ -87,7 +85,10 @@ export default function Reports({ onAlert }) {
 
       const csvContent = [
         headers.join(','),
-        ...rows.map(row => row.map(val => `"${val.toString().replace(/"/g, '""')}"`).join(','))
+        ...rows.map(row => row.map((value) => {
+          const printableValue = value ?? '';
+          return `"${String(printableValue).replace(/"/g, '""')}"`;
+        }).join(','))
       ].join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -98,6 +99,7 @@ export default function Reports({ onAlert }) {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       onAlert({ type: 'success', message: 'CSV Report exported successfully!' });
     } catch (err) {
       onAlert({ type: 'danger', message: err.message });

@@ -1,437 +1,420 @@
+const fs = require('fs');
+const path = require('path');
+const mongoose = require('mongoose');
 const Patient = require('../models/Patient.model');
 const Treatment = require('../models/Treatment.model');
 const scopedQuery = require('../utils/scopedQuery');
-const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
 
-// Helper to check if string is a valid ObjectId
-const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+const asyncHandler = (handler) => (req, res, next) => (
+  Promise.resolve(handler(req, res, next)).catch(next)
+);
 
-// POST /api/patients - create a patient
+const httpError = (statusCode, message) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const assertObjectId = (id, label = 'ID') => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw httpError(400, `Invalid ${label} format.`);
+  }
+};
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeStringArray = (value, fieldName) => {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
+    throw httpError(400, `${fieldName} must be an array of strings.`);
+  }
+
+  return [...new Set(value.map((entry) => entry.trim()).filter(Boolean))];
+};
+
+const parseAge = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const age = Number(value);
+  if (!Number.isInteger(age) || age < 0 || age > 150) {
+    throw httpError(400, 'Age must be a whole number between 0 and 150.');
+  }
+  return age;
+};
+
+const validateRequiredIdentity = ({ name, phone }) => {
+  if (typeof name !== 'string' || !name.trim()) {
+    throw httpError(400, 'Patient name is required.');
+  }
+  if (typeof phone !== 'string' || !phone.trim()) {
+    throw httpError(400, 'Patient phone number is required.');
+  }
+  if (!/^\+?[\d\s()-]{7,30}$/.test(phone.trim())) {
+    throw httpError(400, 'Patient phone number format is invalid.');
+  }
+};
+
+const buildPatientFilter = (query) => {
+  const filter = {};
+
+  if (query.status && query.status !== 'all') {
+    if (!['cleared', 'uncleared'].includes(query.status)) {
+      throw httpError(400, 'Status must be all, cleared, or uncleared.');
+    }
+    filter.status = query.status;
+  }
+
+  const search = typeof query.search === 'string' ? query.search.trim() : '';
+  if (search) {
+    const searchRegex = new RegExp(escapeRegex(search), 'i');
+    filter.$or = [{ name: searchRegex }, { phone: searchRegex }];
+  }
+
+  return filter;
+};
+
+const parsePagination = (query) => {
+  const page = Number.parseInt(query.page ?? '1', 10);
+  const limit = Number.parseInt(query.limit ?? '10', 10);
+
+  if (!Number.isInteger(page) || page < 1) {
+    throw httpError(400, 'Page must be a positive integer.');
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw httpError(400, 'Limit must be an integer between 1 and 100.');
+  }
+
+  return { page, limit, skip: (page - 1) * limit };
+};
+
+const findScopedPatient = (req, patientId) => (
+  scopedQuery.findOne(req, Patient, { _id: patientId })
+);
+
+const storedFilePath = (attachmentUrl) => (
+  path.join(__dirname, '..', 'uploads', path.basename(attachmentUrl))
+);
+
+const removeStoredFile = async (attachmentUrl) => {
+  if (!attachmentUrl) return;
+  try {
+    await fs.promises.unlink(storedFilePath(attachmentUrl));
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error(`Unable to remove attachment ${attachmentUrl}:`, error.message);
+    }
+  }
+};
+
+// POST /api/patients
 const createPatient = async (req, res) => {
-  try {
-    const { name, phone, email, age, gender, bloodGroup, status, notes } = req.body;
+  validateRequiredIdentity(req.body);
 
-    // Validation
-    if (!name || name.trim() === '') {
-      return res.status(400).json({ error: 'Patient name is required.' });
-    }
+  const allergies = normalizeStringArray(req.body.allergies, 'Allergies') ?? [];
+  const medicalConditions = normalizeStringArray(
+    req.body.medicalConditions,
+    'Medical conditions'
+  ) ?? [];
 
-    if (!phone || phone.trim() === '') {
-      return res.status(400).json({ error: 'Patient phone number is required.' });
-    }
+  const patient = await Patient.create({
+    clinicId: req.user.clinicId,
+    name: req.body.name.trim(),
+    phone: req.body.phone.trim(),
+    email: typeof req.body.email === 'string' ? req.body.email.trim() : '',
+    age: parseAge(req.body.age),
+    gender: req.body.gender || 'other',
+    bloodGroup: typeof req.body.bloodGroup === 'string'
+      ? req.body.bloodGroup.trim()
+      : '',
+    status: req.body.status || 'uncleared',
+    notes: typeof req.body.notes === 'string' ? req.body.notes.trim() : '',
+    allergies,
+    medicalConditions
+  });
 
-    // Phone duplicate validation in the same clinic
-    const existingPatient = await Patient.findOne({
-      clinicId: req.user.clinicId,
-      phone: phone.trim()
-    });
-
-    if (existingPatient) {
-      return res.status(400).json({
-        error: 'Duplicate phone number. A patient with this phone number already exists in this clinic.',
-        isDuplicate: true
-      });
-    }
-
-    // Age validation
-    if (age !== undefined && age !== null && (isNaN(age) || Number(age) < 0)) {
-      return res.status(400).json({ error: 'Age must be a positive number.' });
-    }
-
-    const patient = new Patient({
-      clinicId: req.user.clinicId,
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email ? email.trim() : '',
-      age: age ? Number(age) : undefined,
-      gender,
-      bloodGroup,
-      status: status || 'uncleared',
-      notes: notes || '',
-      allergies: [],
-      medicalConditions: [],
-      toothChart: [],
-      attachments: [],
-      createdAt: new Date()
-    });
-
-    await patient.save();
-    res.status(201).json(patient);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  res.status(201).json(patient);
 };
 
-// GET /api/patients - search, filter, and paginate patients
+// GET /api/patients
 const getPatients = async (req, res) => {
-  try {
-    const { search, status, page = 1, limit = 10 } = req.query;
-    const filter = {};
+  const filter = buildPatientFilter(req.query);
+  const { page, limit, skip } = parsePagination(req.query);
 
-    // Apply status filter if provided (cleared/uncleared)
-    if (status && status !== 'all') {
-      filter.status = status;
-    }
+  const [patients, total] = await Promise.all([
+    scopedQuery(req, Patient, filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Patient.countDocuments(scopedQuery.filter(req, filter))
+  ]);
 
-    // Apply search filter (name or phone)
-    if (search && search.trim() !== '') {
-      const searchRegex = new RegExp(search.trim(), 'i');
-      filter.$or = [
-        { name: searchRegex },
-        { phone: searchRegex }
-      ];
-    }
-
-    const currentPage = parseInt(page);
-    const limitCount = parseInt(limit);
-    const skipCount = (currentPage - 1) * limitCount;
-
-    // Use scopedQuery to ensure multi-tenancy isolation
-    // Since scopedQuery returns a Mongoose Query, we can chain count and pagination
-    const baseQuery = Patient.find({ clinicId: req.user.clinicId, ...filter });
-    const total = await Patient.countDocuments({ clinicId: req.user.clinicId, ...filter });
-    const patients = await baseQuery.skip(skipCount).limit(limitCount).sort({ createdAt: -1 });
-
-    res.status(200).json({
-      data: patients,
-      total,
-      page: currentPage,
-      pages: Math.ceil(total / limitCount)
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  res.json({
+    data: patients,
+    total,
+    page,
+    limit,
+    pages: Math.max(1, Math.ceil(total / limit))
+  });
 };
 
-// GET /api/patients/:id - view patient details
+// GET /api/patients/export
+const getPatientsForExport = async (req, res) => {
+  const filter = buildPatientFilter(req.query);
+  const patients = await scopedQuery(req, Patient, filter)
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(10000)
+    .lean();
+
+  res.json({ data: patients, total: patients.length });
+};
+
+// GET /api/patients/:id
 const getPatientById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: 'Invalid patient ID format.' });
-    }
+  assertObjectId(req.params.id, 'patient ID');
+  const patient = await findScopedPatient(req, req.params.id).lean();
 
-    const patient = await Patient.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!patient) {
-      return res.status(404).json({ error: 'Patient not found or unauthorized.' });
-    }
-
-    res.status(200).json(patient);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  if (!patient) {
+    throw httpError(404, 'Patient not found.');
   }
+
+  res.json(patient);
 };
 
-// PUT /api/patients/:id - edit basic patient fields only
+// PUT /api/patients/:id
 const updatePatient = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, phone, email, age, gender, bloodGroup, status, notes } = req.body;
+  assertObjectId(req.params.id, 'patient ID');
+  const patient = await findScopedPatient(req, req.params.id);
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: 'Invalid patient ID format.' });
-    }
-
-    const patient = await Patient.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!patient) {
-      return res.status(404).json({ error: 'Patient not found or unauthorized.' });
-    }
-
-    // Validation
-    if (name !== undefined) {
-      if (name.trim() === '') {
-        return res.status(400).json({ error: 'Patient name cannot be empty.' });
-      }
-      patient.name = name.trim();
-    }
-
-    if (phone !== undefined) {
-      if (phone.trim() === '') {
-        return res.status(400).json({ error: 'Patient phone number cannot be empty.' });
-      }
-      // Check phone duplicate (excluding self)
-      const existingPatient = await Patient.findOne({
-        clinicId: req.user.clinicId,
-        phone: phone.trim(),
-        _id: { $ne: id }
-      });
-      if (existingPatient) {
-        return res.status(400).json({ error: 'Phone number already in use by another patient.' });
-      }
-      patient.phone = phone.trim();
-    }
-
-    if (email !== undefined) patient.email = email.trim();
-    if (age !== undefined) {
-      if (age !== null && (isNaN(age) || Number(age) < 0)) {
-        return res.status(400).json({ error: 'Age must be a positive number.' });
-      }
-      patient.age = age ? Number(age) : undefined;
-    }
-    if (gender !== undefined) patient.gender = gender;
-    if (bloodGroup !== undefined) patient.bloodGroup = bloodGroup;
-    if (status !== undefined) patient.status = status;
-    if (notes !== undefined) patient.notes = notes;
-
-    await patient.save();
-    res.status(200).json(patient);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  if (!patient) {
+    throw httpError(404, 'Patient not found.');
   }
+
+  if (req.body.name !== undefined || req.body.phone !== undefined) {
+    validateRequiredIdentity({
+      name: req.body.name ?? patient.name,
+      phone: req.body.phone ?? patient.phone
+    });
+  }
+
+  if (req.body.name !== undefined) patient.name = req.body.name.trim();
+  if (req.body.phone !== undefined) patient.phone = req.body.phone.trim();
+  if (req.body.email !== undefined) {
+    patient.email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+  }
+  if (req.body.age !== undefined) patient.age = parseAge(req.body.age);
+  if (req.body.gender !== undefined) patient.gender = req.body.gender;
+  if (req.body.bloodGroup !== undefined) {
+    patient.bloodGroup = typeof req.body.bloodGroup === 'string'
+      ? req.body.bloodGroup.trim()
+      : '';
+  }
+  if (req.body.status !== undefined) patient.status = req.body.status;
+  if (req.body.notes !== undefined) {
+    patient.notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
+  }
+
+  await patient.save();
+  res.json(patient);
 };
 
-// DELETE /api/patients/:id - hard delete patient
+// DELETE /api/patients/:id
 const deletePatient = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: 'Invalid patient ID format.' });
-    }
+  assertObjectId(req.params.id, 'patient ID');
+  const patient = await findScopedPatient(req, req.params.id);
 
-    const patient = await Patient.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!patient) {
-      return res.status(404).json({ error: 'Patient not found or unauthorized.' });
-    }
-
-    // Delete associated files from local storage
-    if (patient.attachments && patient.attachments.length > 0) {
-      patient.attachments.forEach(attachment => {
-        try {
-          const filePath = path.join(__dirname, '..', attachment.url);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        } catch (fileErr) {
-          console.error(`Failed to delete file on disk: ${attachment.url}`, fileErr);
-        }
-      });
-    }
-
-    await Patient.deleteOne({ _id: id });
-    res.status(200).json({ message: 'Patient and associated attachments deleted successfully.' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  if (!patient) {
+    throw httpError(404, 'Patient not found.');
   }
+
+  const attachmentUrls = patient.attachments.map((attachment) => attachment.url);
+  await Patient.deleteOne(scopedQuery.filter(req, { _id: patient._id }));
+  await Promise.all(attachmentUrls.map(removeStoredFile));
+
+  res.json({ message: 'Patient and associated attachments deleted successfully.' });
 };
 
-// PUT /api/patients/:id/tooth-chart - update complete tooth chart array
+// PUT /api/patients/:id/tooth-chart
 const updateToothChart = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const toothChart = req.body; // Full array of { toothNumber, condition, treatmentId, notes }
-
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: 'Invalid patient ID format.' });
-    }
-
-    if (!Array.isArray(toothChart)) {
-      return res.status(400).json({ error: 'Tooth chart must be an array.' });
-    }
-
-    const patient = await Patient.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!patient) {
-      return res.status(404).json({ error: 'Patient not found or unauthorized.' });
-    }
-
-    // Validate treatmentIds exist and belong to the same clinic
-    for (const entry of toothChart) {
-      if (entry.treatmentId) {
-        if (!isValidObjectId(entry.treatmentId)) {
-          return res.status(400).json({ error: `Invalid Treatment ID: ${entry.treatmentId}` });
-        }
-        const treatment = await Treatment.findOne({ _id: entry.treatmentId, clinicId: req.user.clinicId });
-        if (!treatment) {
-          return res.status(400).json({ error: `Treatment with ID ${entry.treatmentId} not found or belongs to another clinic.` });
-        }
-      }
-    }
-
-    // Update chart
-    patient.toothChart = toothChart.map(entry => ({
-      toothNumber: Number(entry.toothNumber),
-      condition: entry.condition || '',
-      treatmentId: entry.treatmentId || null,
-      notes: entry.notes || ''
-    }));
-
-    await patient.save();
-    res.status(200).json(patient);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  assertObjectId(req.params.id, 'patient ID');
+  if (!Array.isArray(req.body)) {
+    throw httpError(400, 'Tooth chart must be an array.');
   }
-};
 
-// PUT /api/patients/:id/medical-info - update allergies and medical conditions
-const updateMedicalInfo = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { allergies, medicalConditions } = req.body;
+  const seenToothNumbers = new Set();
+  const treatmentIds = new Set();
+  const validConditions = new Set(Patient.toothConditions);
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: 'Invalid patient ID format.' });
+  const toothChart = req.body.map((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      throw httpError(400, 'Every tooth-chart entry must be an object.');
     }
 
-    const patient = await Patient.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!patient) {
-      return res.status(404).json({ error: 'Patient not found or unauthorized.' });
+    const toothNumber = Number(entry.toothNumber);
+    if (!Number.isInteger(toothNumber) || toothNumber < 1 || toothNumber > 32) {
+      throw httpError(400, 'Tooth number must be a whole number from 1 to 32.');
+    }
+    if (seenToothNumbers.has(toothNumber)) {
+      throw httpError(400, `Tooth number ${toothNumber} appears more than once.`);
+    }
+    seenToothNumbers.add(toothNumber);
+
+    const condition = entry.condition || 'Healthy';
+    if (!validConditions.has(condition)) {
+      throw httpError(400, `Invalid condition for tooth ${toothNumber}.`);
     }
 
-    if (allergies !== undefined) {
-      if (!Array.isArray(allergies)) {
-        return res.status(400).json({ error: 'Allergies must be an array of strings.' });
-      }
-      patient.allergies = allergies.map(s => s.trim());
+    let treatmentId = null;
+    if (entry.treatmentId) {
+      assertObjectId(entry.treatmentId, 'treatment ID');
+      treatmentId = entry.treatmentId;
+      treatmentIds.add(String(entry.treatmentId));
     }
 
-    if (medicalConditions !== undefined) {
-      if (!Array.isArray(medicalConditions)) {
-        return res.status(400).json({ error: 'Medical conditions must be an array of strings.' });
-      }
-      patient.medicalConditions = medicalConditions.map(s => s.trim());
-    }
-
-    await patient.save();
-    res.status(200).json(patient);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// POST /api/patients/:id/attachments - upload files and save metadata
-const addAttachment = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: 'Invalid patient ID format.' });
-    }
-
-    const patient = await Patient.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!patient) {
-      // Clean up uploaded file if patient not found
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(404).json({ error: 'Patient not found or unauthorized.' });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded or file does not meet validation criteria.' });
-    }
-
-    // The file url path (statically served by the backend)
-    const relativeUrl = `uploads/${req.file.filename}`;
-    const attachmentEntry = {
-      url: relativeUrl,
-      type: req.file.mimetype.startsWith('image/') ? 'image' : 'pdf',
-      uploadedAt: new Date()
+    return {
+      toothNumber,
+      condition,
+      treatmentId,
+      notes: typeof entry.notes === 'string' ? entry.notes.trim() : ''
     };
+  });
 
-    patient.attachments.push(attachmentEntry);
-    await patient.save();
+  if (treatmentIds.size > 0) {
+    const matchingTreatments = await scopedQuery(req, Treatment, {
+      _id: { $in: [...treatmentIds] }
+    }).select('_id').lean();
 
-    res.status(201).json(patient);
-  } catch (error) {
-    if (req.file) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (err) {}
+    if (matchingTreatments.length !== treatmentIds.size) {
+      throw httpError(400, 'One or more treatments are invalid for this clinic.');
     }
-    res.status(500).json({ error: error.message });
   }
+
+  const patient = await findScopedPatient(req, req.params.id);
+  if (!patient) {
+    throw httpError(404, 'Patient not found.');
+  }
+
+  patient.toothChart = toothChart.sort((a, b) => a.toothNumber - b.toothNumber);
+  await patient.save();
+  res.json(patient);
 };
 
-// DELETE /api/patients/:id/attachments/:attachmentId - delete attachment file and reference
+// PUT /api/patients/:id/medical-info
+const updateMedicalInfo = async (req, res) => {
+  assertObjectId(req.params.id, 'patient ID');
+  const patient = await findScopedPatient(req, req.params.id);
+
+  if (!patient) {
+    throw httpError(404, 'Patient not found.');
+  }
+
+  const allergies = normalizeStringArray(req.body.allergies, 'Allergies');
+  const medicalConditions = normalizeStringArray(
+    req.body.medicalConditions,
+    'Medical conditions'
+  );
+
+  if (allergies === undefined && medicalConditions === undefined) {
+    throw httpError(400, 'Provide allergies or medicalConditions to update.');
+  }
+  if (allergies !== undefined) patient.allergies = allergies;
+  if (medicalConditions !== undefined) patient.medicalConditions = medicalConditions;
+
+  await patient.save();
+  res.json(patient);
+};
+
+// POST /api/patients/:id/attachments
+const addAttachment = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    if (req.file) await removeStoredFile(req.file.filename);
+    throw httpError(400, 'Invalid patient ID format.');
+  }
+  if (!req.file) {
+    throw httpError(400, 'Select an image or PDF to upload.');
+  }
+
+  let patient;
+  try {
+    patient = await findScopedPatient(req, req.params.id);
+  } catch (error) {
+    await removeStoredFile(req.file.filename);
+    throw error;
+  }
+  if (!patient) {
+    await removeStoredFile(req.file.filename);
+    throw httpError(404, 'Patient not found.');
+  }
+
+  patient.attachments.push({
+    url: `/uploads/${req.file.filename}`,
+    type: req.file.mimetype.startsWith('image/') ? 'image' : 'pdf',
+    originalName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    size: req.file.size,
+    uploadedAt: new Date()
+  });
+
+  try {
+    await patient.save();
+  } catch (error) {
+    await removeStoredFile(req.file.filename);
+    throw error;
+  }
+
+  res.status(201).json(patient);
+};
+
+// DELETE /api/patients/:id/attachments/:attachmentId
 const deleteAttachment = async (req, res) => {
-  try {
-    const { id, attachmentId } = req.params;
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ error: 'Invalid patient ID format.' });
-    }
+  assertObjectId(req.params.id, 'patient ID');
+  assertObjectId(req.params.attachmentId, 'attachment ID');
 
-    const patient = await Patient.findOne({ _id: id, clinicId: req.user.clinicId });
-    if (!patient) {
-      return res.status(404).json({ error: 'Patient not found or unauthorized.' });
-    }
-
-    const attachmentIndex = patient.attachments.findIndex(
-      att => att._id.toString() === attachmentId
-    );
-
-    if (attachmentIndex === -1) {
-      return res.status(404).json({ error: 'Attachment not found.' });
-    }
-
-    const attachment = patient.attachments[attachmentIndex];
-    // Delete file from disk
-    const filePath = path.join(__dirname, '..', attachment.url);
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    } catch (fileErr) {
-      console.error(`Failed to delete file on disk: ${filePath}`, fileErr);
-    }
-
-    // Remove from array
-    patient.attachments.splice(attachmentIndex, 1);
-    await patient.save();
-
-    res.status(200).json(patient);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  const patient = await findScopedPatient(req, req.params.id);
+  if (!patient) {
+    throw httpError(404, 'Patient not found.');
   }
+
+  const attachment = patient.attachments.id(req.params.attachmentId);
+  if (!attachment) {
+    throw httpError(404, 'Attachment not found.');
+  }
+
+  const attachmentUrl = attachment.url;
+  attachment.deleteOne();
+  await patient.save();
+  await removeStoredFile(attachmentUrl);
+
+  res.json(patient);
 };
 
-// GET /api/dashboard/patients-summary - aggregation counts for clinic
+// GET /api/patients/summary
 const getPatientsSummary = async (req, res) => {
-  try {
-    const clinicObjectId = new mongoose.Types.ObjectId(req.user.clinicId);
+  const clinicId = new mongoose.Types.ObjectId(String(req.user.clinicId));
+  const rows = await Patient.aggregate([
+    { $match: { clinicId } },
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
 
-    const summary = await Patient.aggregate([
-      { $match: { clinicId: clinicObjectId } },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+  const summary = { total: 0, cleared: 0, uncleared: 0 };
+  rows.forEach(({ _id, count }) => {
+    summary.total += count;
+    if (_id === 'cleared') summary.cleared = count;
+    if (_id === 'uncleared') summary.uncleared = count;
+  });
 
-    // Parse aggregation result
-    let total = 0;
-    let cleared = 0;
-    let uncleared = 0;
-
-    summary.forEach(group => {
-      total += group.count;
-      if (group._id === 'cleared') {
-        cleared = group.count;
-      } else if (group._id === 'uncleared') {
-        uncleared = group.count;
-      }
-    });
-
-    res.status(200).json({
-      total,
-      cleared,
-      uncleared
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  res.json(summary);
 };
 
 module.exports = {
-  createPatient,
-  getPatients,
-  getPatientById,
-  updatePatient,
-  deletePatient,
-  updateToothChart,
-  updateMedicalInfo,
-  addAttachment,
-  deleteAttachment,
-  getPatientsSummary
+  createPatient: asyncHandler(createPatient),
+  getPatients: asyncHandler(getPatients),
+  getPatientsForExport: asyncHandler(getPatientsForExport),
+  getPatientById: asyncHandler(getPatientById),
+  updatePatient: asyncHandler(updatePatient),
+  deletePatient: asyncHandler(deletePatient),
+  updateToothChart: asyncHandler(updateToothChart),
+  updateMedicalInfo: asyncHandler(updateMedicalInfo),
+  addAttachment: asyncHandler(addAttachment),
+  deleteAttachment: asyncHandler(deleteAttachment),
+  getPatientsSummary: asyncHandler(getPatientsSummary)
 };

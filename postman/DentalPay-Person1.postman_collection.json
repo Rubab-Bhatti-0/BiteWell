@@ -1,0 +1,250 @@
+{
+  "info": {
+    "_postman_id": "f754ebcc-51e7-4c2c-86a6-b0f493028d70",
+    "name": "DentalPay - Person 1 Patients & Clinical",
+    "description": "Run requests from top to bottom. Create Treatment and Create Patient automatically save their IDs for later requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "patientId",
+      "value": ""
+    },
+    {
+      "key": "treatmentId",
+      "value": ""
+    },
+    {
+      "key": "attachmentId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('API is healthy', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().status).to.eql('healthy');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Create Treatment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Root Canal Therapy\",\n  \"defaultCost\": 15000,\n  \"category\": \"Endodontics\",\n  \"isActive\": true\n}"
+        },
+        "url": "{{baseUrl}}/api/treatments"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Treatment created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "if (body._id) pm.collectionVariables.set('treatmentId', body._id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - List Treatments",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/treatments?isActive=true"
+      }
+    },
+    {
+      "name": "03 - Create Patient",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ayesha Khan\",\n  \"phone\": \"+92 300 1234567\",\n  \"email\": \"ayesha@example.com\",\n  \"age\": 29,\n  \"gender\": \"female\",\n  \"bloodGroup\": \"O+\",\n  \"status\": \"uncleared\",\n  \"notes\": \"First visit\"\n}"
+        },
+        "url": "{{baseUrl}}/api/patients"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Patient created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "if (body._id) pm.collectionVariables.set('patientId', body._id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Search and Filter Patients",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/patients?search=Ayesha&status=uncleared&page=1&limit=10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Paginated response returned', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().data).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - View Patient",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/patients/{{patientId}}"
+      }
+    },
+    {
+      "name": "06 - Update Patient",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"ayesha.khan@example.com\",\n  \"bloodGroup\": \"O+\",\n  \"status\": \"cleared\",\n  \"notes\": \"Demographics verified\"\n}"
+        },
+        "url": "{{baseUrl}}/api/patients/{{patientId}}"
+      }
+    },
+    {
+      "name": "07 - Update Medical Information",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"allergies\": [\"Penicillin\"],\n  \"medicalConditions\": [\"Diabetes\"]\n}"
+        },
+        "url": "{{baseUrl}}/api/patients/{{patientId}}/medical-info"
+      }
+    },
+    {
+      "name": "08 - Update Tooth Chart",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"toothNumber\": 1,\n    \"condition\": \"Healthy\",\n    \"treatmentId\": null,\n    \"notes\": \"\"\n  },\n  {\n    \"toothNumber\": 8,\n    \"condition\": \"Decayed\",\n    \"treatmentId\": \"{{treatmentId}}\",\n    \"notes\": \"Root canal recommended\"\n  }\n]"
+        },
+        "url": "{{baseUrl}}/api/patients/{{patientId}}/tooth-chart"
+      }
+    },
+    {
+      "name": "09 - Upload Attachment",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "attachment",
+              "type": "file",
+              "src": []
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/patients/{{patientId}}/attachments",
+        "description": "In Postman, select an image or PDF smaller than 5MB for the attachment field."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.attachments && body.attachments.length) {",
+              "  pm.collectionVariables.set('attachmentId', body.attachments.at(-1)._id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Dashboard Patient Summary",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/patients/summary"
+      }
+    },
+    {
+      "name": "11 - Export Patient Data",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/patients/export?status=all&search="
+      }
+    },
+    {
+      "name": "12 - Delete Attachment",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/patients/{{patientId}}/attachments/{{attachmentId}}"
+      }
+    },
+    {
+      "name": "13 - Delete Patient (Run Last)",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/patients/{{patientId}}"
+      }
+    }
+  ]
+}
