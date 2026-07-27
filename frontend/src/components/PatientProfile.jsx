@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Edit, Plus, Trash2, Download, Paperclip, FileText, 
-  Image as ImageIcon, Calendar, CreditCard, ChevronRight, CheckCircle2, AlertTriangle, Clock
+  ArrowLeft, Edit, Trash2, Download, Paperclip, FileText, 
+  Image as ImageIcon, CreditCard
 } from 'lucide-react';
 import ToothChart from './ToothChart';
+import NextVisitCard from './NextVisitCard';
 
 export default function PatientProfile({ patientId, onBack, onAlert }) {
   const [patient, setPatient] = useState(null);
@@ -23,12 +24,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
   // File upload state
   const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
-    fetchPatientData();
-    fetchTreatmentsCatalog();
-  }, [patientId]);
-
-  const fetchPatientData = async () => {
+  const fetchPatientData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/patients/${patientId}`);
@@ -50,9 +46,9 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId, onAlert]);
 
-  const fetchTreatmentsCatalog = async () => {
+  const fetchTreatmentsCatalog = useCallback(async () => {
     try {
       const res = await fetch('/api/treatments?isActive=true');
       if (!res.ok) throw new Error('Failed to load treatments catalog.');
@@ -61,7 +57,12 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPatientData();
+    fetchTreatmentsCatalog();
+  }, [fetchPatientData, fetchTreatmentsCatalog]);
 
   // Handle Basic Details Submit
   const handleEditSubmit = async (e) => {
@@ -215,12 +216,6 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     { date: 'Sep 12, 2026', method: 'ACH Transfer', status: 'Success', amount: 1500.00 },
     { date: 'Aug 12, 2026', method: 'Cash', status: 'Success', amount: 1500.00 },
     { date: 'Jul 12, 2026', method: 'Visa **42', status: 'Failed', amount: 1500.00 }
-  ];
-
-  const mockAppointments = [
-    { date: 'Oct 28', time: '09:00 AM - 10:30 AM', title: 'Final Abutment Fitting', doctor: 'Dr. Miller', type: 'next' },
-    { date: 'Oct 10', time: '11:00 AM - 12:00 PM', title: 'Initial Consultation & X-Rays', doctor: 'Dr. Miller', type: 'past' },
-    { date: 'Sep 28', time: '02:00 PM - 03:30 PM', title: 'Treatment Planning Session', doctor: 'Dr. Alexander', type: 'past' }
   ];
 
   return (
@@ -490,61 +485,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
               </div>
             </div>
 
-            {/* Appointment Schedule Panel (Group 2 Parity) */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-xs">
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="text-md font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#00A3E1]" /> Appointment Schedule
-                </h3>
-                <button className="text-xs font-semibold text-[#00A3E1] hover:underline cursor-pointer">+ Schedule</button>
-              </div>
-
-              <div className="space-y-4">
-                {mockAppointments.map((appt, i) => {
-                  const isNext = appt.type === 'next';
-                  return (
-                    <div 
-                      key={i} 
-                      className={`flex gap-3 p-3 rounded-xl border transition-all ${
-                        isNext 
-                          ? 'bg-sky-50/50 border-sky-100 dark:bg-slate-900/40 dark:border-slate-700' 
-                          : 'bg-white border-slate-100 dark:bg-slate-800 dark:border-slate-700/50'
-                      }`}
-                    >
-                      {/* Left Badge */}
-                      <div className={`flex flex-col items-center justify-center p-2 rounded-lg text-center font-bold w-12 h-12 ${
-                        isNext 
-                          ? 'bg-[#0A567D] text-white' 
-                          : 'bg-slate-100 text-slate-500 dark:bg-slate-900'
-                      }`}>
-                        <span className="text-[10px] uppercase tracking-wider leading-none">Oct</span>
-                        <span className="text-lg leading-tight">{appt.date.split(' ').pop()}</span>
-                      </div>
-                      
-                      {/* Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-0.5">
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                            {appt.title}
-                          </h4>
-                          {isNext && (
-                            <span className="text-[9px] bg-[#00A3E1]/10 text-[#0A567D] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                              Next Visit
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                          <Clock className="w-3 h-3 text-[#00A3E1]" /> {appt.time}
-                        </p>
-                        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                          Assigned: <span className="font-semibold text-slate-600 dark:text-slate-300">{appt.doctor}</span>
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <NextVisitCard patientId={patientId} onAlert={onAlert} />
 
           </div>
 

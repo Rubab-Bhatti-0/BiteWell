@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Eye, EyeOff, X } from 'lucide-react';
 
 export default function TreatmentCatalog({ onAlert }) {
@@ -12,11 +12,7 @@ export default function TreatmentCatalog({ onAlert }) {
   const [form, setForm] = useState({ name: '', defaultCost: '', category: 'General', isActive: true });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchTreatments();
-  }, [filterActiveOnly]);
-
-  const fetchTreatments = async () => {
+  const fetchTreatments = useCallback(async () => {
     setLoading(true);
     try {
       const url = filterActiveOnly ? '/api/treatments?isActive=true' : '/api/treatments';
@@ -29,7 +25,11 @@ export default function TreatmentCatalog({ onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterActiveOnly, onAlert]);
+
+  useEffect(() => {
+    fetchTreatments();
+  }, [fetchTreatments]);
 
   const handleOpenCreate = () => {
     setEditingTreatment(null);
