@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const patientRoutes = require('./routes/Patient.routes');
 const treatmentRoutes = require('./routes/Treatment.routes');
+const paymentRoutes = require('./routes/Payment.routes'); // payment route
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +29,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Mount API routes
 app.use('/api/patients', patientRoutes);
 app.use('/api/treatments', treatmentRoutes);
+app.use('/api/payments', paymentRoutes); 
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
