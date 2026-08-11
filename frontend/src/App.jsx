@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, HeartHandshake, FileBarChart, Bell, Sun, Moon, 
-  Menu, Calendar, CreditCard, Send, Settings, UserCheck, ShieldAlert, CheckCircle2, Info, AlertTriangle, LogOut, BarChart3
+  Menu, X, Calendar, CreditCard, Send, Settings, UserCheck, ShieldAlert, CheckCircle2, Info
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 
@@ -11,17 +11,15 @@ import PatientList from './components/PatientList';
 import PatientProfile from './components/PatientProfile';
 import TreatmentCatalog from './components/TreatmentCatalog';
 import Reports from './components/Reports';
-import WelcomeScreen from './components/WelcomeScreen';
-import AIAgentsPage from './pages/AIAgentsPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import LoginPage from './components/LoginPage';
-import SignupPage from './components/SignupPage';
-import SettingsPage from './components/SettingsPage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('welcome'); // welcome, dashboard, patients, treatments, reports, aiAgents
   const [selectedPatientId, setSelectedPatientId] = useState(null); // specific patient detail view
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = window.localStorage.getItem('dentalpay-theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Alerts System
@@ -35,9 +33,10 @@ export default function App() {
     } else {
       root.classList.remove('dark');
     }
+    window.localStorage.setItem('dentalpay-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
-  const addAlert = ({ type = 'info', message }) => {
+  const addAlert = useCallback(({ type = 'info', message }) => {
     const id = Date.now();
     setAlerts(prev => [...prev, { id, type, message }]);
     
@@ -45,7 +44,7 @@ export default function App() {
     setTimeout(() => {
       setAlerts(prev => prev.filter(al => al.id !== id));
     }, 4000);
-  };
+  }, []);
 
   const removeAlert = (id) => {
     setAlerts(prev => prev.filter(al => al.id !== id));
@@ -91,10 +90,6 @@ export default function App() {
         return <Dashboard onNavigate={handleNavigate} onAlert={addAlert} />;
       case 'patients':
         return <PatientList onViewPatient={handleViewPatient} onAlert={addAlert} />;
-      case 'aiAgents':
-        return <AIAgentsPage onNavigate={handleNavigate} />;
-      case 'aiAnalytics':
-        return <AnalyticsPage onNavigate={handleNavigate} />;
       case 'treatments':
         return <TreatmentCatalog onAlert={addAlert} />;
       case 'reports':
@@ -153,11 +148,9 @@ export default function App() {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'patients', label: 'Patients', icon: Users },
-    { id: 'aiAgents', label: 'AI Agents', icon: UserCheck },
-    { id: 'aiAnalytics', label: 'AI Analytics', icon: BarChart3, disabled: false, note: '' },
     { id: 'appointments', label: 'Appointments', icon: Calendar, disabled: true, note: 'Group 2 Scope' },
     { id: 'payments', label: 'Payments', icon: CreditCard, disabled: true, note: 'Group 1 Scope' },
-    { id: 'reminders', label: 'Reminders', icon: Send, disabled: true, note: 'Group 1 Scope' },
+    { id: 'reminders', label: 'Reminders', icon: Send },
     { id: 'treatments', label: 'Treatments', icon: HeartHandshake },
     { id: 'reports', label: 'Reports', icon: FileBarChart },
     { id: 'settings', label: 'Settings', icon: Settings }

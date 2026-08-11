@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, UserPlus, FileText, Edit, Trash2, ChevronLeft, ChevronRight, AlertCircle, X, ShieldAlert } from 'lucide-react';
+import React, { useCallback, useState, useEffect } from 'react';
+import { Search, UserPlus, FileText, Edit, Trash2, ChevronLeft, ChevronRight, ShieldAlert } from 'lucide-react';
 
 export default function PatientList({ onViewPatient, onAlert }) {
   const [patients, setPatients] = useState([]);
@@ -37,12 +37,7 @@ export default function PatientList({ onViewPatient, onAlert }) {
     return () => clearTimeout(handler);
   }, [search]);
 
-  // Load patients list on query updates
-  useEffect(() => {
-    fetchPatients();
-  }, [debouncedSearch, statusTab, page]);
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -62,7 +57,12 @@ export default function PatientList({ onViewPatient, onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, statusTab, page, onAlert]);
+
+  // Load patients list on query updates
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

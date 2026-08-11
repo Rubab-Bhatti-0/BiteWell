@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Download, FileSpreadsheet, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import SchedulingReportSection from './SchedulingReportSection';
 
 export default function Reports({ onAlert }) {
   const [patients, setPatients] = useState([]);
@@ -23,11 +24,7 @@ export default function Reports({ onAlert }) {
     return () => clearTimeout(handler);
   }, [search]);
 
-  useEffect(() => {
-    fetchPatients();
-  }, [debouncedSearch, statusTab, page]);
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -47,7 +44,11 @@ export default function Reports({ onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, statusTab, page, onAlert]);
+
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
 
   const handleExportCSV = async () => {
     if (totalCount === 0) {
@@ -254,6 +255,8 @@ export default function Reports({ onAlert }) {
           </div>
         )}
       </div>
+
+      <SchedulingReportSection onAlert={onAlert} />
     </div>
   );
 }

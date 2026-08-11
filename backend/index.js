@@ -1,15 +1,9 @@
-const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
-const path = require('path');
 const multer = require('multer');
 require('dotenv').config();
-
-const patientRoutes = require('./routes/Patient.routes');
-const treatmentRoutes = require('./routes/Treatment.routes');
+const createApp = require('./app');
 const authRoutes = require('./routes/authRoutes');
 
-const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/dentalpay';
 
@@ -62,6 +56,7 @@ app.use((err, req, res, next) => {
 mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('Successfully connected to MongoDB.');
+    const app = createApp();
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
