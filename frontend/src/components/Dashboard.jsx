@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, CheckCircle2, AlertCircle, TrendingUp, DollarSign, Calendar, Clock, 
-  ArrowUpRight, ArrowDownRight, Plus, CreditCard, Activity, ArrowRight
+  ArrowUpRight, ArrowDownRight, Plus, CreditCard, Activity, ArrowRight , ChevronRight
 } from 'lucide-react';
 
 export default function Dashboard({ onNavigate, onAlert }) {

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import gsap from 'gsap';
 
-const WelcomeScreen = () => {
+const WelcomeScreen = ({ onNavigate }) => {
   const leftPanelRef = useRef(null);
   const rightPanelRef = useRef(null);
   const leftContentRef = useRef(null);
@@ -179,13 +179,14 @@ const WelcomeScreen = () => {
             Register a brand new workspace profile for your clinic.
           </p>
           <div className="pt-2">
-            <a 
-              href="/signup" 
+            <button
+              type="button"
+              onClick={() => onNavigate?.('signup')}
               className="inline-flex items-center gap-2.5 bg-white hover:bg-slate-50 text-[#0A567D] font-bold text-base px-8 py-4 rounded-xl shadow-md transition-all active:scale-[0.98]"
             >
               <UserPlus className="w-5 h-5" />
               <span>Sign Up</span>
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -228,13 +229,14 @@ const WelcomeScreen = () => {
             Sign into your existing safe dashboard console.
           </p>
           <div className="pt-2">
-            <a 
-              href="/login" 
+            <button
+              type="button"
+              onClick={() => onNavigate?.('login')}
               className="inline-flex items-center gap-2.5 bg-[#0A567D] hover:bg-[#084767] text-white font-bold text-base px-8 py-4 rounded-xl shadow-md transition-all active:scale-[0.98]"
             >
               <LogIn className="w-5 h-5" />
               <span>Login</span>
-            </a>
+            </button>
           </div>
         </div>
 

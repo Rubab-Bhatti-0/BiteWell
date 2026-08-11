@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
-// Uncomment the line below if you are using react-router-dom:
-import { useNavigate } from 'react-router-dom';
 
-const SignupPage = () => {
-  const navigate = useNavigate();
+const SignupPage = ({ onSuccess, onNavigate }) => {
   const [selectedCard, setSelectedCard] = useState(0);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,7 +34,7 @@ const SignupPage = () => {
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/settings');
+      onSuccess?.();
     } catch (err) {
       setError(err.message);
     }
@@ -181,7 +178,7 @@ const SignupPage = () => {
 
               <button 
                 type="button"
-                onClick={() => window.location.href = '/dashboard'}
+                onClick={() => onSuccess?.()}
                 className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm py-3.5 border-2 border-slate-200 rounded-xl transition-all flex items-center justify-center gap-2.5 shadow-sm"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
@@ -198,7 +195,7 @@ const SignupPage = () => {
 
           <p className="text-center text-sm font-medium text-slate-400 pt-2">
             Already registered?{' '}
-            <a href="/login" className="text-[#00A3E1] font-bold hover:underline">Log in here</a>
+            <button type="button" onClick={() => onNavigate?.('login')} className="text-[#00A3E1] font-bold hover:underline">Log in here</button>
           </p>
 
         </div>

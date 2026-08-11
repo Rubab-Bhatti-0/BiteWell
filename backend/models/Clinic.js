@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const ClinicSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -20,4 +20,4 @@ const ClinicSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-export default mongoose.model('Clinic', ClinicSchema);
+module.exports = mongoose.model('Clinic', ClinicSchema);

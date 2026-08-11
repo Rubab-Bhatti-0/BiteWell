@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LogIn, TrendingUp } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 
-const LoginPage = () => {
-  const navigate = useNavigate();
+const LoginPage = ({ onSuccess, onNavigate }) => {
   const [activeMonth, setActiveMonth] = useState('May');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +31,7 @@ const LoginPage = () => {
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/settings');
+      onSuccess?.();
     } catch (err) {
       setError(err.message);
     }
@@ -149,7 +147,7 @@ const LoginPage = () => {
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/settings');
+      onSuccess?.();
     } catch (err) {
       setError(err.message);
     }
@@ -313,7 +311,7 @@ const LoginPage = () => {
 
           <p className="text-center text-sm font-medium text-slate-400 pt-2">
             Don't have a profile space yet?{' '}
-            <a href="/signup" className="text-[#00A3E1] font-bold hover:underline">Sign up for free</a>
+            <button type="button" onClick={() => onNavigate?.('signup')} className="text-[#00A3E1] font-bold hover:underline">Sign up for free</button>
           </p>
 
         </div>
