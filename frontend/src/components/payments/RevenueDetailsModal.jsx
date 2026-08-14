@@ -4,7 +4,7 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { X } from 'lucide-react';
 import { paymentService } from '../../services/payment.service';
 
 const RevenueDetailsModal = ({ type, onClose, onAlert }) => {
@@ -14,6 +14,7 @@ const RevenueDetailsModal = ({ type, onClose, onAlert }) => {
 
   useEffect(() => {
     fetchData();
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
   const fetchData = async () => {

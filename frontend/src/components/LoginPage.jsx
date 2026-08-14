@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LogIn, TrendingUp } from 'lucide-react';
 import gsap from 'gsap';
 
@@ -13,7 +13,7 @@ const LoginPage = ({ onSuccess, onNavigate }) => {
   const leftContentRef = useRef(null);
   const rightContentRef = useRef(null);
 
-  const handleGoogleLoginCallback = async (response) => {
+  const handleGoogleLoginCallback = useCallback(async (response) => {
     setError('');
     try {
       const res = await fetch('/api/auth/google', {
@@ -35,7 +35,7 @@ const LoginPage = ({ onSuccess, onNavigate }) => {
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [onSuccess]);
 
   useEffect(() => {
     // If the library is loaded, initialize GSI
@@ -65,7 +65,7 @@ const LoginPage = ({ onSuccess, onNavigate }) => {
       }, 500);
       return () => clearInterval(checkInterval);
     }
-  }, []);
+  }, [handleGoogleLoginCallback]);
 
   useEffect(() => {
     // Entrance animations

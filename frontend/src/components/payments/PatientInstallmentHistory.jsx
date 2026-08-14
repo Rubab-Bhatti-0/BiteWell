@@ -17,6 +17,7 @@ const PatientInstallmentHistory = ({ patientId, onAlert }) => {
     if (patientId) {
       fetchInstallments();
     }
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
 
   const fetchInstallments = async () => {

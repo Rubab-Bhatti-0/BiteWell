@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Brand colors */
@@ -104,6 +105,62 @@ body {
   overflow-x: hidden;
   margin: 0;
   padding: 0;
+}
+
+button,
+select {
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  color: #0F172A;
+  -webkit-text-fill-color: #0F172A;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  color: #FFFFFF;
+  -webkit-text-fill-color: #FFFFFF;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94A3B8;
+  -webkit-text-fill-color: #94A3B8;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #64748B;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.form-control {
+  width: 100%;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  background: #F8FAFC;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-control:focus {
+  border-color: #00A3E1;
+  box-shadow: 0 0 0 3px rgb(0 163 225 / 0.16);
+}
+
+.dark .form-control {
+  border-color: #334155;
+  background: #0F172A;
 }
 
 /* Custom dark mode utility classes since v4 doesn't require media query nesting */

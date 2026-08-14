@@ -5,10 +5,21 @@
 
 const API_BASE = '/api/payments';
 
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'x-clinic-id': '60c72b2f9b1d8b2bad000001'
-});
+const getHeaders = () => {
+  const token = localStorage.getItem('token');
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    user = null;
+  }
+  const clinicId = user?.clinicId?._id || user?.clinicId || '60c72b2f9b1d8b2bad000001';
+  return {
+    'Content-Type': 'application/json',
+    'x-clinic-id': clinicId,
+    ...(token ? { Authorization: 'Bearer ' + token } : {})
+  };
+};
 
 export const paymentService = {
   // 1. Create installment plan

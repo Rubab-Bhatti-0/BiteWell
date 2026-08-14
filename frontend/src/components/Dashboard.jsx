@@ -1,281 +1,213 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Users, CheckCircle2, AlertCircle, TrendingUp, DollarSign, Calendar, Clock, 
-  ArrowUpRight, ArrowDownRight, Plus, CreditCard, Activity, ArrowRight , ChevronRight
+  Users, CheckCircle2, AlertCircle, Calendar, Clock, 
+  Plus, Activity, ArrowRight, Send
 } from 'lucide-react';
+import { apiFetch } from '../lib/api';
+import { initials, relativeTime } from '../lib/date';
+
+function todayRange() {
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(from);
+  to.setDate(to.getDate() + 1);
+  return { from, to };
+}
 
 export default function Dashboard({ onNavigate, onAlert }) {
-  const [summary, setSummary] = useState({ total: 0, cleared: 0, uncleared: 0 });
+  const [patientSummary, setPatientSummary] = useState({
+    total: 0,
+    cleared: 0,
+    uncleared: 0
+  });
+  const [scheduling, setScheduling] = useState({
+    upcomingVisits: [],
+    recentActivity: [],
+    pendingReminders: 0
+  });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchSummary();
-  }, []);
-
-  const fetchSummary = async () => {
+  const loadDashboard = useCallback(async () => {
     setLoading(true);
-    try {
-      const res = await fetch('/api/patients/summary');
-      if (!res.ok) throw new Error('Failed to load dashboard summary.');
-      const data = await res.json();
-      setSummary(data);
-    } catch (err) {
-      console.error(err);
-      onAlert({ type: 'danger', message: err.message });
-    } finally {
-      setLoading(false);
+    const range = todayRange();
+    const params = new URLSearchParams({
+      from: range.from.toISOString(),
+      to: range.to.toISOString()
+    });
+    const results = await Promise.allSettled([
+      apiFetch('/api/patients/summary'),
+      apiFetch(`/api/scheduling/dashboard?${params}`)
+    ]);
+
+    if (results[0].status === 'fulfilled') {
+      setPatientSummary(results[0].value);
+    } else {
+      onAlert({ type: 'danger', message: results[0].reason.message });
     }
-  };
+    if (results[1].status === 'fulfilled') {
+      setScheduling(results[1].value);
+    } else {
+      onAlert({ type: 'danger', message: results[1].reason.message });
+    }
+    setLoading(false);
+  }, [onAlert]);
 
-  // Mocked details
-  const mockVisits = [
-    { name: 'Robert Hawkins', treatment: 'Root Canal Therapy', time: '09:00 AM', status: 'Confirmed', initial: 'RH' },
-    { name: 'Alice Miller', treatment: 'Routine Cleaning', time: '10:30 AM', status: 'Waiting', initial: 'AM' },
-    { name: 'Eliza Jones', treatment: 'Crown Fitting', time: '01:15 PM', status: 'Confirmed', initial: 'EJ' }
-  ];
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
-  const mockActivities = [
-    { text: 'Payment Received: Rs 1,500.00 from Johnathan Doe', time: '2 minutes ago', type: 'payment' },
-    { text: 'New Patient Registered: Maria Gonzales was added', time: '1 hour ago', type: 'register' },
-    { text: 'Invoice Overdue: Patient #17892 - David Rossi', time: '3 hours ago', type: 'overdue' },
-    { text: 'Appointment Confirmed: Dr. Alex for Emily Thorne', time: '4 hours ago', type: 'appt' }
+  const cards = [
+    {
+      label: 'Total Patients',
+      value: patientSummary.total,
+      note: 'Active clinic registries',
+      icon: Users,
+      valueClass: 'text-slate-900 dark:text-white',
+      iconClass: 'bg-sky-50 text-[#00A3E1]'
+    },
+    {
+      label: 'Cleared Accounts',
+      value: patientSummary.cleared,
+      note: 'Zero outstanding balance',
+      icon: CheckCircle2,
+      valueClass: 'text-emerald-600',
+      iconClass: 'bg-emerald-50 text-emerald-500'
+    },
+    {
+      label: 'Uncleared Accounts',
+      value: patientSummary.uncleared,
+      note: 'Installments pending',
+      icon: AlertCircle,
+      valueClass: 'text-rose-500',
+      iconClass: 'bg-rose-50 text-rose-500'
+    },
+    {
+      label: 'Pending Reminders',
+      value: scheduling.pendingReminders,
+      note: 'Waiting to be sent',
+      icon: Send,
+      valueClass: 'text-[#0A567D] dark:text-[#00A3E1]',
+      iconClass: 'bg-sky-50 text-[#0A567D]'
+    }
   ];
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Practice Overview</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Welcome back, Dr. Chan. Here's what's happening today.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Practice Overview</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Live patient, visit and activity information.
+          </p>
+        </div>
+        <button onClick={loadDashboard} className="text-xs font-bold text-[#0A567D] hover:underline">
+          Refresh
+        </button>
       </div>
 
-      {/* Aggregation Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Total Patients Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex justify-between items-center relative overflow-hidden group">
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total Patients</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
-                {loading ? '...' : summary.total.toLocaleString()}
-              </span>
-              <span className="text-[11px] text-emerald-500 font-bold flex items-center bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-sm">
-                +12% <ArrowUpRight className="w-3 h-3 ml-0.5" />
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500">Active clinic registries</p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-sky-50 dark:bg-slate-900 flex items-center justify-center text-[#00A3E1]">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Cleared Patients Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex justify-between items-center relative overflow-hidden group">
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Cleared Accounts</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#0A567D] dark:text-[#00A3E1]">
-                {loading ? '...' : summary.cleared.toLocaleString()}
-              </span>
-              <span className="text-[11px] text-emerald-500 font-bold flex items-center bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-sm">
-                94% rate
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500">Zero outstanding balance</p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-slate-900 flex items-center justify-center text-emerald-500">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Uncleared Patients Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex justify-between items-center relative overflow-hidden group">
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Uncleared Accounts</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-rose-500 dark:text-rose-400">
-                {loading ? '...' : summary.uncleared.toLocaleString()}
-              </span>
-              <span className="text-[11px] text-rose-500 dark:text-rose-400 font-bold flex items-center bg-rose-50 dark:bg-rose-950/30 px-1.5 py-0.5 rounded-sm">
-                Needs review
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500">Installments pending</p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-slate-900 flex items-center justify-center text-rose-500 dark:text-rose-400">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-        </div>
-
-      </div>
-
-      {/* Main Charts & Visual Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Revenue Growth Chart */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-6">
-          <div className="flex justify-between items-center">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map(({ label, value, note, icon: Icon, valueClass, iconClass }) => (
+          <div key={label} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div>
-              <h3 className="text-md font-bold text-slate-900 dark:text-white">Revenue Growth</h3>
-              <p className="text-xs text-slate-400 dark:text-slate-500">Monthly billing performance</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}</p>
+              <p className={`mt-2 text-3xl font-extrabold ${valueClass}`}>
+                {loading ? '…' : Number(value || 0).toLocaleString()}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">{note}</p>
             </div>
-            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 px-2.5 py-1.5 rounded-lg">
-              Last 6 Months
-            </span>
-          </div>
-
-          <div className="h-64 flex items-end justify-between gap-4 pt-4 px-2">
-            {[
-              { month: 'Feb', value: 34200, height: '45%' },
-              { month: 'Mar', value: 41900, height: '58%' },
-              { month: 'Apr', value: 38200, height: '52%' },
-              { month: 'May', value: 52100, height: '75%' },
-              { month: 'Jun', value: 48900, height: '68%' },
-              { month: 'Jul', value: 64200, height: '90%', active: true }
-            ].map((bar, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
-                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity translate-y-1">
-                  Rs {(bar.value/1000).toFixed(1)}k
-                </span>
-                <div 
-                  style={{ height: bar.height }} 
-                  className={`w-full max-w-[40px] rounded-t-lg transition-all duration-500 cursor-pointer ${
-                    bar.active 
-                      ? 'bg-gradient-to-t from-[#084767] to-[#00A3E1] shadow-md shadow-[#00A3E1]/15' 
-                      : 'bg-sky-50 dark:bg-slate-900 hover:bg-sky-100 dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-800'
-                  }`}
-                ></div>
-                <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">{bar.month}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Actions Panel */}
-        <div className="lg:col-span-1 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-6 flex flex-col justify-between">
-          <div>
-            <h3 className="text-md font-bold text-slate-900 dark:text-white">Quick Actions</h3>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mb-5">Common patient operations</p>
-            
-            <div className="space-y-3">
-              <button 
-                onClick={() => onNavigate('patients')} 
-                className="w-full flex items-center justify-between p-3.5 bg-sky-50/50 hover:bg-sky-50 dark:bg-slate-900/50 dark:hover:bg-slate-900 text-[#0A567D] hover:text-[#084767] dark:text-[#00A3E1] dark:hover:text-[#00A3E1]/80 border border-sky-100 dark:border-slate-700 rounded-xl transition-all font-semibold text-sm cursor-pointer"
-              >
-                <span className="flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-[#00A3E1]" /> Add New Patient
-                </span>
-                <ChevronRight className="w-4 h-4 text-[#0A567D] dark:text-[#00A3E1]" />
-              </button>
-
-              <button 
-                onClick={() => onNavigate('patients')} 
-                className="w-full flex items-center justify-between p-3.5 bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30 text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 border border-emerald-100 dark:border-emerald-800/30 rounded-xl transition-all font-semibold text-sm cursor-pointer"
-              >
-                <span className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-emerald-500" /> Collect Patient Payment
-                </span>
-                <ChevronRight className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-              </button>
-
-              <button 
-                onClick={() => onNavigate('patients')} 
-                className="w-full flex items-center justify-between p-3.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/50 dark:hover:bg-slate-900 border border-slate-200/50 dark:border-slate-700/50 rounded-xl transition-all font-semibold text-sm cursor-pointer text-slate-700 dark:text-slate-300"
-              >
-                <span className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-slate-400 dark:text-slate-500" /> Book Appointment
-                </span>
-                <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-              </button>
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconClass}`}>
+              <Icon className="h-6 w-6" />
             </div>
           </div>
-
-          <div className="border-t border-slate-100 dark:border-slate-700 pt-4 mt-4">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-400 dark:text-slate-500">Monthly Target Collection:</span>
-              <span className="font-bold text-slate-800 dark:text-white">Rs 45,000 / Rs 50,000</span>
-            </div>
-            <div className="w-full h-2 bg-slate-100 dark:bg-slate-900 rounded-full mt-2 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-600 w-[90%] rounded-full"></div>
-            </div>
-          </div>
-        </div>
-
+        ))}
       </div>
 
-      {/* Lower Row: Visits & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Upcoming Visits */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-4">
-          <div className="flex justify-between items-center mb-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 xl:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="text-md font-bold text-slate-900 dark:text-white">Upcoming Visits Today</h3>
-              <p className="text-xs text-slate-400 dark:text-slate-500">Scheduled clinical operations</p>
+              <h2 className="font-bold text-slate-900 dark:text-white">Upcoming Visits Today</h2>
+              <p className="text-xs text-slate-400">Real appointments from the clinic calendar</p>
             </div>
-            <button 
-              onClick={() => onNavigate('patients')}
-              className="text-xs font-semibold text-[#00A3E1] hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              View Calendar <ArrowRight className="w-3.5 h-3.5" />
+            <button onClick={() => onNavigate('appointments')} className="flex items-center gap-1 text-xs font-bold text-[#00A3E1]">
+              View Calendar <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {mockVisits.map((visit, i) => (
-              <div key={i} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-sky-50 dark:bg-slate-900 text-[#0A567D] dark:text-[#00A3E1] font-bold flex items-center justify-center border border-sky-100/50 dark:border-slate-700">
-                    {visit.initial}
+          {scheduling.upcomingVisits.length === 0 ? (
+            <div className="rounded-xl bg-slate-50 py-10 text-center text-sm text-slate-400 dark:bg-slate-900">
+              <Calendar className="mx-auto mb-2 h-8 w-8" />
+              No appointments scheduled for today.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              {scheduling.upcomingVisits.map((visit) => (
+                <div key={visit._id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-50 text-xs font-bold text-[#0A567D]">
+                      {initials(visit.patientName)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{visit.patientName}</p>
+                      <p className="truncate text-xs text-slate-400">{visit.title} · {visit.doctorName}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-white">{visit.name}</h4>
-                    <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold">{visit.treatment}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-[#00A3E1]" /> {visit.time}
+                  <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-slate-500">
+                    <Clock className="h-3.5 w-3.5 text-[#00A3E1]" />
+                    {new Date(visit.startAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
                   </span>
-                  <button 
-                    onClick={() => onNavigate('patients')}
-                    className="px-3 py-1 bg-[#0A567D] hover:bg-[#084767] dark:bg-[#00A3E1] dark:hover:bg-[#00A3E1]/80 text-white text-xs font-bold rounded-lg cursor-pointer"
-                  >
-                    Check In
-                  </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-        {/* Recent Activity */}
-        <div className="lg:col-span-1 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-4">
-          <div>
-            <h3 className="text-md font-bold text-slate-900 dark:text-white">Recent Activity</h3>
-            <p className="text-xs text-slate-400 dark:text-slate-500">Live event logs</p>
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="mb-4">
+            <h2 className="font-bold text-slate-900 dark:text-white">Recent Activity</h2>
+            <p className="text-xs text-slate-400">Tenant-scoped audit events</p>
           </div>
-
-          <div className="space-y-4">
-            {mockActivities.map((act, i) => (
-              <div key={i} className="flex gap-3 text-xs">
-                <div className="mt-0.5 text-slate-400 dark:text-slate-500">
-                  <Activity className="w-3.5 h-3.5 text-[#00A3E1]" />
+          {scheduling.recentActivity.length === 0 ? (
+            <div className="py-10 text-center text-sm text-slate-400">
+              <Activity className="mx-auto mb-2 h-8 w-8" />
+              No activity recorded yet.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {scheduling.recentActivity.slice(0, 6).map((item) => (
+                <div key={item._id} className="flex gap-3">
+                  <Activity className="mt-0.5 h-4 w-4 shrink-0 text-[#00A3E1]" />
+                  <div>
+                    <p className="text-xs font-semibold leading-relaxed text-slate-700 dark:text-slate-300">{item.description}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">{relativeTime(item.createdAt)}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-slate-700 dark:text-slate-300 leading-normal">
-                    {act.text}
-                  </p>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{act.time}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <h2 className="mb-4 font-bold text-slate-900 dark:text-white">Quick Actions</h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <button onClick={() => onNavigate('patients')} className="flex items-center justify-between rounded-xl border border-sky-100 bg-sky-50/60 p-4 text-sm font-bold text-[#0A567D]">
+            <span className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add Patient</span>
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          <button onClick={() => onNavigate('appointments')} className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 text-sm font-bold text-emerald-700">
+            <span className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Book Appointment</span>
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          <button onClick={() => onNavigate('reminders')} className="flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/60 p-4 text-sm font-bold text-amber-700">
+            <span className="flex items-center gap-2"><Send className="h-4 w-4" /> Manage Reminders</span>
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,22 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Edit, Plus, Trash2, Download, Paperclip, FileText, 
-  Image as ImageIcon, Calendar, CreditCard, ChevronRight, CheckCircle2, AlertTriangle, Clock
+  ArrowLeft, Edit, Trash2, Download, Paperclip, FileText, 
+  Image as ImageIcon, CreditCard
 } from 'lucide-react';
 import ToothChart from './ToothChart';
-
-// 👇 NEW: Import payment components
-import CreateInstallmentPlan from './payments/CreateInstallmentPlan';
-import PatientInstallmentHistory from './payments/PatientInstallmentHistory';
+import NextVisitCard from './NextVisitCard';
 
 export default function PatientProfile({ patientId, onBack, onAlert }) {
   const [patient, setPatient] = useState(null);
   const [treatmentsCatalog, setTreatmentsCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // 👇 NEW: Payment modal state
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [treatments, setTreatments] = useState([]);
   
   // Edit basic info modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -31,19 +24,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
   // File upload state
   const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
-    fetchPatientData();
-    fetchTreatmentsCatalog();
-  }, [patientId]);
-
-  // 👇 NEW: Fetch treatments when payment modal opens
-  useEffect(() => {
-    if (showPaymentModal) {
-      fetchTreatments();
-    }
-  }, [showPaymentModal]);
-
-  const fetchPatientData = async () => {
+  const fetchPatientData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/patients/${patientId}`);
@@ -65,9 +46,9 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId, onAlert]);
 
-  const fetchTreatmentsCatalog = async () => {
+  const fetchTreatmentsCatalog = useCallback(async () => {
     try {
       const res = await fetch('/api/treatments?isActive=true');
       if (!res.ok) throw new Error('Failed to load treatments catalog.');
@@ -76,22 +57,12 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
-  // 👇 NEW: Fetch treatments for payment modal
-  const fetchTreatments = async () => {
-    try {
-      const res = await fetch('/api/treatments', {
-        headers: { 'x-clinic-id': '60c72b2f9b1d8b2bad000001' }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTreatments(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch treatments:', error);
-    }
-  };
+  useEffect(() => {
+    fetchPatientData();
+    fetchTreatmentsCatalog();
+  }, [fetchPatientData, fetchTreatmentsCatalog]);
 
   // Handle Basic Details Submit
   const handleEditSubmit = async (e) => {
@@ -173,6 +144,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Validate client-side
     if (file.size > 5 * 1024 * 1024) {
       onAlert({ type: 'danger', message: 'File size exceeds 5MB limit.' });
       return;
@@ -205,7 +177,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
       onAlert({ type: 'danger', message: err.message });
     } finally {
       setUploading(false);
-      e.target.value = '';
+      e.target.value = ''; // Reset file input
     }
   };
 
@@ -238,6 +210,14 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
 
   if (!patient) return null;
 
+  // Mocked details to complete UI mockup matching
+  const mockInstallments = [
+    { date: 'Oct 12, 2026', method: 'Visa **42', status: 'Success', amount: 1500.00 },
+    { date: 'Sep 12, 2026', method: 'ACH Transfer', status: 'Success', amount: 1500.00 },
+    { date: 'Aug 12, 2026', method: 'Cash', status: 'Success', amount: 1500.00 },
+    { date: 'Jul 12, 2026', method: 'Visa **42', status: 'Failed', amount: 1500.00 }
+  ];
+
   return (
     <div className="space-y-6">
       {/* Back button and profile header */}
@@ -248,21 +228,12 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
         >
           <ArrowLeft className="w-4 h-4" /> Back to Patients
         </button>
-        <div className="flex gap-2">
-          {/* 👇 NEW: Create Payment Plan Button */}
-          <button
-            onClick={() => setShowPaymentModal(true)}
-            className="bg-[#0A567D] hover:bg-[#084767] text-white px-3.5 py-1.5 rounded-lg font-medium text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" /> Create Payment Plan
-          </button>
-          <button
-            onClick={() => setIsEditModalOpen(true)}
-            className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-1.5 rounded-lg font-medium text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-          >
-            <Edit className="w-3.5 h-3.5 text-slate-500" /> Edit Demographics
-          </button>
-        </div>
+        <button
+          onClick={() => setIsEditModalOpen(true)}
+          className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3.5 py-1.5 rounded-lg font-medium text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+        >
+          <Edit className="w-3.5 h-3.5 text-slate-500" /> Edit Demographics
+        </button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
@@ -270,8 +241,10 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
         {/* LEFT COLUMN: Patient Identity Card */}
         <div className="xl:col-span-1 space-y-6">
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-xs relative overflow-hidden flex flex-col items-center">
+            {/* Accent gradient banner */}
             <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-[#084767] to-[#00A3E1]"></div>
             
+            {/* Profile Avatar */}
             <div className="w-24 h-24 rounded-full bg-slate-100 dark:bg-slate-900 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-3xl mb-4 mt-2">
               {patient.name.charAt(0)}
             </div>
@@ -279,6 +252,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-0.5">{patient.name}</h2>
             <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold mb-4">Patient ID: DP-#{patient._id.slice(-6).toUpperCase()}</p>
             
+            {/* Status Badge */}
             {patient.status === 'cleared' ? (
               <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 mb-6">
                 Cleared
@@ -289,6 +263,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
               </span>
             )}
 
+            {/* Core Stats Details Grid */}
             <div className="grid grid-cols-3 w-full border-y border-slate-100 dark:border-slate-700 py-4 mb-6 text-center">
               <div className="border-r border-slate-100 dark:border-slate-700">
                 <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Age</span>
@@ -304,6 +279,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
               </div>
             </div>
 
+            {/* Contact Details */}
             <div className="w-full space-y-3.5 text-sm font-medium">
               <div className="flex gap-3 text-slate-600 dark:text-slate-400">
                 <span className="text-xs text-slate-400 font-semibold w-14">Email:</span>
@@ -407,6 +383,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
               </label>
             </div>
 
+            {/* List of Attachments */}
             {patient.attachments.length === 0 ? (
               <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center text-slate-400 dark:text-slate-500">
                 <Paperclip className="w-8 h-8 mx-auto mb-2 text-slate-300" />
@@ -459,47 +436,62 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
             )}
           </div>
 
-          {/* 👇 REPLACED: REAL Installment History with REAL Payment Data */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-xs">
-            <PatientInstallmentHistory patientId={patientId} onAlert={onAlert} />
-          </div>
+          {/* Section: Mocked Payments and Appointments */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Installment History Panel (Group 1 Parity) */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-xs">
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="text-md font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-[#00A3E1]" /> Installment History
+                </h3>
+                <button className="text-xs font-semibold text-[#00A3E1] hover:underline cursor-pointer">View All</button>
+              </div>
 
-          {/* Appointment Schedule Panel (Keep as is) */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-xs">
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="text-md font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#00A3E1]" /> Appointment Schedule
-              </h3>
-              <button className="text-xs font-semibold text-[#00A3E1] hover:underline cursor-pointer">+ Schedule</button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Keep your mock appointments here - this is someone else's feature */}
-              <div className="text-center py-4 text-slate-400 text-sm">
-                Appointments feature coming soon
+              {/* Installments Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-semibold">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 uppercase tracking-wider">
+                      <th className="py-2.5 pb-2">Date</th>
+                      <th className="py-2.5 pb-2">Method</th>
+                      <th className="py-2.5 pb-2">Status</th>
+                      <th className="py-2.5 pb-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {mockInstallments.map((inst, i) => (
+                      <tr key={i} className="text-slate-700 dark:text-slate-300">
+                        <td className="py-3 font-medium">{inst.date}</td>
+                        <td className="py-3 font-semibold">{inst.method}</td>
+                        <td className="py-3">
+                          {inst.status === 'Success' ? (
+                            <span className="inline-flex px-2 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold">
+                              Success
+                            </span>
+                          ) : (
+                            <span className="inline-flex px-2 py-0.5 rounded text-[10px] bg-rose-50 text-rose-600 border border-rose-100 font-bold">
+                              Failed
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 text-right font-bold text-slate-900 dark:text-white">
+                          ${inst.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+
+            <NextVisitCard patientId={patientId} onAlert={onAlert} />
+
           </div>
 
         </div>
 
       </div>
-
-      {/* 👇 NEW: Create Installment Plan Modal */}
-      {showPaymentModal && (
-        <CreateInstallmentPlan
-          patientId={patient._id}
-          patientName={patient.name}
-          treatments={treatments}
-          onSuccess={() => {
-            setShowPaymentModal(false);
-            onAlert({ type: 'success', message: '✅ Installment plan created successfully!' });
-            fetchPatientData(); // Refresh patient data
-          }}
-          onCancel={() => setShowPaymentModal(false)}
-          onAlert={onAlert}
-        />
-      )}
 
       {/* Edit Patient Modal Form */}
       {isEditModalOpen && (
@@ -518,6 +510,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
             <form onSubmit={handleEditSubmit} className="space-y-4">
               
               <div className="grid grid-cols-2 gap-4">
+                {/* Name */}
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                     Patient Name <span className="text-rose-500">*</span>
@@ -531,6 +524,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                   />
                 </div>
 
+                {/* Phone */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                     Phone <span className="text-rose-500">*</span>
@@ -544,6 +538,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                   />
                 </div>
 
+                {/* Email */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
                   <input
@@ -554,6 +549,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                   />
                 </div>
 
+                {/* Age */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Age</label>
                   <input
@@ -565,6 +561,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                   />
                 </div>
 
+                {/* Gender */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Gender</label>
                   <select
@@ -578,6 +575,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                   </select>
                 </div>
 
+                {/* Blood Group */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Blood Group</label>
                   <input
@@ -589,6 +587,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                   />
                 </div>
 
+                {/* Status */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
                   <select
@@ -602,6 +601,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                 </div>
               </div>
 
+              {/* Notes */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Administrative Notes</label>
                 <textarea
@@ -613,6 +613,7 @@ export default function PatientProfile({ patientId, onBack, onAlert }) {
                 ></textarea>
               </div>
 
+              {/* Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700 mt-6">
                 <button
                   type="button"

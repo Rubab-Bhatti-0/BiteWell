@@ -4,17 +4,18 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle, Clock, AlertTriangle, TrendingUp, Eye } from 'lucide-react';
+import { CreditCard, Eye } from 'lucide-react';
 import { paymentService } from '../../services/payment.service';
 import CollectPaymentModal from './CollectPaymentModal';
 
-const PaymentSummary = ({ patientId, patientName, onAlert }) => {
+const PaymentSummary = ({ patientId, onAlert }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedInstallment, setSelectedInstallment] = useState(null);
 
   useEffect(() => {
     fetchData();
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
 
   const fetchData = async () => {
@@ -154,6 +155,7 @@ const PlanInstallments = ({ planId, onAlert }) => {
     if (expanded) {
       fetchInstallments();
     }
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded]);
 
   const fetchInstallments = async () => {

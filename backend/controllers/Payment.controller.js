@@ -8,7 +8,7 @@ const PaymentService = require('../services/payment.service');
 // POST: Create installment plan
 const createInstallmentPlan = async (req, res) => {
   try {
-    const { patientId, treatmentId, totalCost, downPayment, installmentCount, dueDay } = req.body;
+    const { patientId, treatmentId, totalCost, downPayment, installmentCount, dueDay } = req.body || {};
     const clinicId = req.user.clinicId;
 
     // Validation
@@ -48,7 +48,7 @@ const createInstallmentPlan = async (req, res) => {
 const markInstallmentPaid = async (req, res) => {
   try {
     const { installmentId } = req.params;
-    const { paymentMethod } = req.body;
+    const { paymentMethod } = req.body || {};
     const clinicId = req.user.clinicId;
 
     if (!paymentMethod) {

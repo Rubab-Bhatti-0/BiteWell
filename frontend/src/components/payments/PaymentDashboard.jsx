@@ -20,6 +20,7 @@ const PaymentDashboard = ({ onAlert }) => {
 
   useEffect(() => {
     fetchRevenue();
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchRevenue = async () => {

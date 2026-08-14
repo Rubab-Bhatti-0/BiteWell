@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, HeartHandshake, FileBarChart, Bell, Sun, Moon, 
-  Menu, X, Calendar, CreditCard, Send, Settings, UserCheck, ShieldAlert, CheckCircle2, Info, AlertTriangle, LogOut, BarChart3
+  Menu, Calendar, CreditCard, Send, Settings, UserCheck, ShieldAlert, CheckCircle2, Info, BarChart3, LogOut, AlertTriangle
 } from 'lucide-react';
 import { Toaster } from 'sonner';
+import PaymentDashboard from './components/payments/PaymentDashboard';
 
-// Import subcomponents - Existing
+// Import subcomponents
 import Dashboard from './components/Dashboard';
 import PatientList from './components/PatientList';
 import PatientProfile from './components/PatientProfile';
@@ -17,90 +18,42 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import SettingsPage from './components/SettingsPage';
-
-// Import payment components
-import PaymentDashboard from './components/payments/PaymentDashboard';
-import PaymentSummary from './components/payments/PaymentSummary';
-import CreateInstallmentPlan from './components/payments/CreateInstallmentPlan';
-import CollectPaymentModal from './components/payments/CollectPaymentModal';
+import Appointments from './components/Appointments';
+import Reminders from './components/Reminders';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('welcome'); // welcome, dashboard, patients, treatments, reports, aiAgents
   const [selectedPatientId, setSelectedPatientId] = useState(null); // specific patient detail view
-  //const [activeTab, setActiveTab] = useState('dashboard');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = window.localStorage.getItem('dentalpay-theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Alerts System
-  const [alerts, setAlerts] = useState([]);
-
-  // Payment modals
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showCollectModal, setShowCollectModal] = useState(false);
-  const [selectedInstallment, setSelectedInstallment] = useState(null);
-  const [treatments, setTreatments] = useState([]);
-  const [patientData, setPatientData] = useState(null);
+  const [alerts, setAlerts] = useState([]); // Array of { id, type, message }
 
   // Sync dark mode class on html node
   useEffect(() => {
     const root = window.document.documentElement;
     if (darkMode) {
       root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
     } else {
       root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
     }
+    window.localStorage.setItem('dentalpay-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
-  // Load saved theme on first load
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setDarkMode(true);
-      document.documentElement.classList.add('dark');
-    } else if (savedTheme === 'light') {
-      setDarkMode(false);
-      document.documentElement.classList.remove('dark');
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (prefersDark) {
-        setDarkMode(true);
-        document.documentElement.classList.add('dark');
-      }
-    }
-  }, []);
-
-  // Fetch treatments when needed
-  useEffect(() => {
-    if (activeTab === 'payments') {
-      fetchTreatments();
-    }
-  }, [activeTab]);
-
-  const fetchTreatments = async () => {
-    try {
-      const response = await fetch('/api/treatments', {
-        headers: {
-          'x-clinic-id': '60c72b2f9b1d8b2bad000001'
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTreatments(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch treatments:', error);
-    }
-  };
-
-  const addAlert = ({ type = 'info', message }) => {
+  const addAlert = useCallback(({ type = 'info', message }) => {
     const id = Date.now();
     setAlerts(prev => [...prev, { id, type, message }]);
+    
+    // Auto-remove after 4 seconds
     setTimeout(() => {
       setAlerts(prev => prev.filter(al => al.id !== id));
     }, 4000);
-  };
+  }, []);
 
   const removeAlert = (id) => {
     setAlerts(prev => prev.filter(al => al.id !== id));
@@ -109,8 +62,6 @@ export default function App() {
   const handleNavigate = (tab) => {
     setActiveTab(tab);
     setSelectedPatientId(null);
-    setShowPaymentModal(false);
-    setShowCollectModal(false);
   };
 
   const handleLogout = () => {
@@ -128,17 +79,6 @@ export default function App() {
 
   const isAuthScreen = activeTab === 'login' || activeTab === 'signup';
   const isWelcome = activeTab === 'welcome';
-  // Open create payment plan modal
-  const handleOpenPaymentModal = (patientId, patientName) => {
-    setPatientData({ patientId, patientName });
-    setShowPaymentModal(true);
-  };
-
-  // Open collect payment modal
-  const handleOpenCollectModal = (installment) => {
-    setSelectedInstallment(installment);
-    setShowCollectModal(true);
-  };
 
   // Render view depending on navigation state
   const renderContent = () => {
@@ -148,7 +88,6 @@ export default function App() {
           patientId={selectedPatientId} 
           onBack={() => setSelectedPatientId(null)}
           onAlert={addAlert}
-          onOpenPaymentModal={handleOpenPaymentModal}
         />
       );
     }
@@ -158,67 +97,20 @@ export default function App() {
         return <WelcomeScreen onNavigate={handleNavigate} />;
       case 'dashboard':
         return <Dashboard onNavigate={handleNavigate} onAlert={addAlert} />;
-      
       case 'patients':
         return <PatientList onViewPatient={handleViewPatient} onAlert={addAlert} />;
+      case 'payments':
+        return <PaymentDashboard onAlert={addAlert} />;
       case 'aiAgents':
         return <AIAgentsPage onNavigate={handleNavigate} />;
       case 'aiAnalytics':
         return <AnalyticsPage onNavigate={handleNavigate} />;
-      
-      case 'payments':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">💰 Payments</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Manage installment plans and track patient payments
-              </p>
-            </div>
-            
-            {/* Payment Dashboard */}
-            <PaymentDashboard onAlert={addAlert} />
-            
-            {/* Payment Summary for selected patient */}
-            {selectedPatientId ? (
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                    Patient Payment Summary
-                  </h2>
-                  <button
-                    onClick={() => setSelectedPatientId(null)}
-                    className="text-sm text-[#00A3E1] hover:underline cursor-pointer"
-                  >
-                    View All Patients
-                  </button>
-                </div>
-                <PaymentSummary 
-                  patientId={selectedPatientId}
-                  onAlert={addAlert}
-                />
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
-                <p className="text-slate-500 dark:text-slate-400 text-center py-8 text-base">
-                  👆 Select a patient from the Patients tab to view their payment summary
-                </p>
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => handleNavigate('patients')}
-                    className="text-[#00A3E1] hover:underline text-sm font-medium cursor-pointer"
-                  >
-                    Go to Patients
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      
+      case 'appointments':
+        return <Appointments onAlert={addAlert} />;
+      case 'reminders':
+        return <Reminders onAlert={addAlert} />;
       case 'treatments':
         return <TreatmentCatalog onAlert={addAlert} />;
-      
       case 'reports':
         return <Reports onAlert={addAlert} />;
       case 'settings':
@@ -227,7 +119,6 @@ export default function App() {
         return <LoginPage onSuccess={() => setActiveTab('dashboard')} onNavigate={handleNavigate} />;
       case 'signup':
         return <SignupPage onSuccess={() => setActiveTab('dashboard')} onNavigate={handleNavigate} />;
-      
       default:
         return <WelcomeScreen onNavigate={handleNavigate} />;
     }
@@ -278,9 +169,9 @@ export default function App() {
     { id: 'patients', label: 'Patients', icon: Users },
     { id: 'aiAgents', label: 'AI Agents', icon: UserCheck },
     { id: 'aiAnalytics', label: 'AI Analytics', icon: BarChart3, disabled: false, note: '' },
-    { id: 'appointments', label: 'Appointments', icon: Calendar, disabled: true, note: 'Group 2 Scope' },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
-    { id: 'reminders', label: 'Reminders', icon: Send, disabled: true, note: 'Group 1 Scope' },
+    { id: 'appointments', label: 'Appointments', icon: Calendar },
+    { id: 'payments', label: 'Payments', icon: CreditCard, disabled: false, note: '' },
+    { id: 'reminders', label: 'Reminders', icon: Send },
     { id: 'treatments', label: 'Treatments', icon: HeartHandshake },
     { id: 'reports', label: 'Reports', icon: FileBarChart },
     { id: 'settings', label: 'Settings', icon: Settings }
@@ -402,7 +293,6 @@ export default function App() {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'pl-64' : 'pl-20'}`}>
         <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200/85 dark:border-slate-700/85 flex items-center justify-between px-8 sticky top-0 z-30">
           <button
-          
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg text-slate-500 cursor-pointer"
           >
@@ -416,8 +306,6 @@ export default function App() {
             </div>
 
             <button
-            
-           
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg text-slate-500 cursor-pointer"
             >
@@ -438,80 +326,6 @@ export default function App() {
 
       {renderAlerts()}
       <Toaster position="top-right" richColors />
-      {/* CREATE INSTALLMENT PLAN MODAL */}
-      {showPaymentModal && patientData && (
-        <CreateInstallmentPlan
-          patientId={patientData.patientId}
-          patientName={patientData.patientName}
-          treatments={treatments}
-          onSuccess={(data) => {
-            setShowPaymentModal(false);
-            addAlert({ 
-              type: 'success', 
-              message: `✅ Installment plan created! ${data.plan.installmentCount} payments scheduled.` 
-            });
-          }}
-          onCancel={() => setShowPaymentModal(false)}
-          onAlert={addAlert}
-        />
-      )}
-
-      {/* COLLECT PAYMENT MODAL */}
-      {showCollectModal && selectedInstallment && (
-        <CollectPaymentModal
-          installment={selectedInstallment}
-          onClose={() => {
-            setShowCollectModal(false);
-            setSelectedInstallment(null);
-          }}
-          onSuccess={() => {
-            setShowCollectModal(false);
-            setSelectedInstallment(null);
-            addAlert({ type: 'success', message: '✅ Payment recorded successfully!' });
-          }}
-          onAlert={addAlert}
-        />
-      )}
-
-      {/* TOAST SYSTEM */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full">
-        {alerts.map((al) => {
-          let typeClasses = '';
-          let Icon = Info;
-          if (al.type === 'success') {
-            typeClasses = 'bg-emerald-50 border-emerald-300 text-emerald-800';
-            Icon = CheckCircle2;
-          } else if (al.type === 'danger') {
-            typeClasses = 'bg-rose-50 border-rose-200 text-rose-800';
-            Icon = ShieldAlert;
-          } else if (al.type === 'warning') {
-            typeClasses = 'bg-amber-50 border-amber-300 text-amber-800';
-            Icon = AlertTriangle;
-          } else {
-            typeClasses = 'bg-sky-50 border-sky-200 text-sky-800';
-            Icon = Info;
-          }
-
-          return (
-            <div 
-              key={al.id}
-              className={`flex items-start gap-3 p-4 rounded-xl border shadow-lg animate-alert-fade-in ${typeClasses}`}
-            >
-              <Icon className="w-5 h-5 mt-0.5 shrink-0" />
-              <div className="flex-1 text-xs font-semibold leading-relaxed">
-                {al.message}
-              </div>
-              <button 
-                onClick={() => removeAlert(al.id)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm cursor-pointer shrink-0"
-              >
-                &times;
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { AgentList } from "@/components/AgentList";
 import { AgentLimitModal } from "@/components/AgentLimitModal";
 import { DowngradeModal } from "@/components/DowngradeModal";
 import { toast } from "sonner";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 function AIAgentsPage({ onNavigate }) {
   const { agents, isLoading, enableAgent, disableAgent, refetch } = useAgents();
   const [activeMutationId, setActiveMutationId] = useState(null);
@@ -38,7 +40,7 @@ function AIAgentsPage({ onNavigate }) {
     setIsDowngrading(true);
     try {
       const token = typeof window !== "undefined" ? (localStorage.getItem("token") || localStorage.getItem("saas_token") || "") : "";
-      const res = await fetch("http://localhost:5000/api/subscription/downgrade", {
+      const res = await fetch(`${API_BASE_URL}/subscription/downgrade`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -56,7 +58,7 @@ function AIAgentsPage({ onNavigate }) {
       } else {
         toast.error(data.message || "Failed to downgrade subscription.");
       }
-    } catch (err) {
+    } catch {
       toast.error("Network error during downgrade.");
     } finally {
       setIsDowngrading(false);
