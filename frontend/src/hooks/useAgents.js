@@ -33,7 +33,7 @@ async function getAuthToken() {
           localStorage.setItem("token", token);
         }
       }
-    } catch (e) {
+    } catch {
       // Silent catch — fall back to mock data
     }
   }
@@ -60,7 +60,7 @@ function useAgents() {
         isEnabled: Boolean(item.enabled)
       }));
       setAgents(mapped);
-    } catch (err) {
+    } catch {
       setAgents([
         {
           id: "appointment-reminder",
@@ -122,7 +122,7 @@ function useAgents() {
       );
       toast.success(`${agent.name} enabled successfully.`);
       return true;
-    } catch (err) {
+    } catch {
       toast.error("Network error enabling agent.");
       return false;
     }
@@ -147,7 +147,7 @@ function useAgents() {
       );
       toast.info(`${agent.name} has been disabled.`);
       return true;
-    } catch (err) {
+    } catch {
       toast.error("Network error disabling agent.");
       return false;
     }
@@ -180,7 +180,7 @@ function useAgentAnalytics() {
             requests: u.totalRequests
           }))
         });
-      } catch (err) {
+      } catch {
         setData({
           totalRequestsToday: 1284,
           mostUsedAgent: "Patient Chatbot",

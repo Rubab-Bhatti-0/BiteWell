@@ -17,6 +17,7 @@ const ClinicSchema = new mongoose.Schema({
   subscriptionPlan: { type: String, enum: ['free', 'standard', 'premium'], default: 'free' },
   subscriptionStatus: { type: String, enum: ['active', 'cancelled', 'expired'], default: 'active' },
   subscriptionExpiresAt: { type: Date },
+  enabledAgents: { type: [String], default: [] },
   createdAt: { type: Date, default: Date.now }
 });
 

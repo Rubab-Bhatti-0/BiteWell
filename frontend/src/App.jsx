@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, HeartHandshake, FileBarChart, Bell, Sun, Moon, 
-  Menu, X, Calendar, CreditCard, Send, Settings, UserCheck, ShieldAlert, CheckCircle2, Info
+  Menu, Calendar, CreditCard, Send, Settings, UserCheck, ShieldAlert, CheckCircle2, Info, BarChart3, LogOut, AlertTriangle
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 
@@ -11,6 +11,14 @@ import PatientList from './components/PatientList';
 import PatientProfile from './components/PatientProfile';
 import TreatmentCatalog from './components/TreatmentCatalog';
 import Reports from './components/Reports';
+import WelcomeScreen from './components/WelcomeScreen';
+import AIAgentsPage from './pages/AIAgentsPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import LoginPage from './components/LoginPage';
+import SignupPage from './components/SignupPage';
+import SettingsPage from './components/SettingsPage';
+import Appointments from './components/Appointments';
+import Reminders from './components/Reminders';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('welcome'); // welcome, dashboard, patients, treatments, reports, aiAgents
@@ -90,6 +98,14 @@ export default function App() {
         return <Dashboard onNavigate={handleNavigate} onAlert={addAlert} />;
       case 'patients':
         return <PatientList onViewPatient={handleViewPatient} onAlert={addAlert} />;
+      case 'aiAgents':
+        return <AIAgentsPage onNavigate={handleNavigate} />;
+      case 'aiAnalytics':
+        return <AnalyticsPage onNavigate={handleNavigate} />;
+      case 'appointments':
+        return <Appointments onAlert={addAlert} />;
+      case 'reminders':
+        return <Reminders onAlert={addAlert} />;
       case 'treatments':
         return <TreatmentCatalog onAlert={addAlert} />;
       case 'reports':
@@ -148,7 +164,9 @@ export default function App() {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'patients', label: 'Patients', icon: Users },
-    { id: 'appointments', label: 'Appointments', icon: Calendar, disabled: true, note: 'Group 2 Scope' },
+    { id: 'aiAgents', label: 'AI Agents', icon: UserCheck },
+    { id: 'aiAnalytics', label: 'AI Analytics', icon: BarChart3, disabled: false, note: '' },
+    { id: 'appointments', label: 'Appointments', icon: Calendar },
     { id: 'payments', label: 'Payments', icon: CreditCard, disabled: true, note: 'Group 1 Scope' },
     { id: 'reminders', label: 'Reminders', icon: Send },
     { id: 'treatments', label: 'Treatments', icon: HeartHandshake },

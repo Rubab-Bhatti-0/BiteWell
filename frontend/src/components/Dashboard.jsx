@@ -1,14 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Activity,
-  AlertCircle,
-  ArrowRight,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Plus,
-  Send,
-  Users , ChevronRight
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  Users, CheckCircle2, AlertCircle, Calendar, Clock, 
+  Plus, Activity, ArrowRight, Send
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { initials, relativeTime } from '../lib/date';

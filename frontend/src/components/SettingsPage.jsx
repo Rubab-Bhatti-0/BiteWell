@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Sidebar from './Sidebar'; // Ensure this matches your directory structure
 import { 
   Bell, 
   Search, 
@@ -20,7 +19,6 @@ import {
 export default function SettingsPage() {
   // Navigation & UI States
   const [activeTab, setActiveTab] = useState('Clinic Info');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Loading and Alert states
   const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +72,6 @@ export default function SettingsPage() {
           <div className="flex items-center gap-4 flex-1">
             {/* Mobile Hamburger Menu Toggle */}
             <button 
-              onClick={() => setIsSidebarOpen(true)} 
               className="lg:hidden text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-50"
             >
               <Menu className="w-5 h-5" />
