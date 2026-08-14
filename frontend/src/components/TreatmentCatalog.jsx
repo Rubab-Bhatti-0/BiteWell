@@ -8,7 +8,7 @@ export default function TreatmentCatalog({ onAlert }) {
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTreatment, setEditingTreatment] = useState(null); // null if creating
+  const [editingTreatment, setEditingTreatment] = useState(null);
   const [form, setForm] = useState({ name: '', defaultCost: '', category: 'General', isActive: true });
   const [submitting, setSubmitting] = useState(false);
 
@@ -118,6 +118,7 @@ export default function TreatmentCatalog({ onAlert }) {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Treatment Catalog</h1>
@@ -125,12 +126,13 @@ export default function TreatmentCatalog({ onAlert }) {
         </div>
         <button
           onClick={handleOpenCreate}
-          className="bg-[#0A567D] hover:bg-[#084767] text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+          className="bg-[#0A567D] hover:bg-[#084767] dark:bg-[#00A3E1] dark:hover:bg-[#00A3E1]/80 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Add Treatment
         </button>
       </div>
 
+      {/* Main Container */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
         {/* Toolbar */}
         <div className="flex justify-between items-center mb-6">
@@ -139,7 +141,7 @@ export default function TreatmentCatalog({ onAlert }) {
               onClick={() => setFilterActiveOnly(prev => !prev)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                 filterActiveOnly
-                  ? 'bg-sky-50 border-[#00A3E1] text-[#0A567D]'
+                  ? 'bg-sky-50 dark:bg-sky-950/30 border-[#00A3E1] text-[#0A567D] dark:text-[#00A3E1]'
                   : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
               }`}
             >
@@ -155,10 +157,10 @@ export default function TreatmentCatalog({ onAlert }) {
         {/* Content Table */}
         {loading ? (
           <div className="space-y-4">
-            <div className="h-10 skeleton rounded-lg"></div>
-            <div className="h-14 skeleton rounded-lg"></div>
-            <div className="h-14 skeleton rounded-lg"></div>
-            <div className="h-14 skeleton rounded-lg"></div>
+            <div className="h-10 skeleton rounded-lg dark:bg-slate-700"></div>
+            <div className="h-14 skeleton rounded-lg dark:bg-slate-700"></div>
+            <div className="h-14 skeleton rounded-lg dark:bg-slate-700"></div>
+            <div className="h-14 skeleton rounded-lg dark:bg-slate-700"></div>
           </div>
         ) : treatments.length === 0 ? (
           <div className="text-center py-12">
@@ -196,16 +198,16 @@ export default function TreatmentCatalog({ onAlert }) {
                         {t.category}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-right font-semibold">
-                      ${t.defaultCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <td className="py-4 px-4 text-right font-semibold text-slate-700 dark:text-slate-300">
+                      Rs {t.defaultCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-4 px-4 text-center">
                       {t.isActive ? (
-                        <span className="inline-flex px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        <span className="inline-flex px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/30">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex px-2.5 py-1 text-xs font-bold rounded-full bg-rose-50 text-rose-600 border border-rose-200">
+                        <span className="inline-flex px-2.5 py-1 text-xs font-bold rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/30">
                           Inactive
                         </span>
                       )}
@@ -223,7 +225,7 @@ export default function TreatmentCatalog({ onAlert }) {
                           <button
                             onClick={() => handleDelete(t._id)}
                             title="Deactivate (Soft Delete)"
-                            className="p-1.5 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:border-rose-950 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-800/30 text-rose-500 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-300 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -248,7 +250,7 @@ export default function TreatmentCatalog({ onAlert }) {
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -257,7 +259,7 @@ export default function TreatmentCatalog({ onAlert }) {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                   Treatment Name <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -267,18 +269,18 @@ export default function TreatmentCatalog({ onAlert }) {
                   placeholder="e.g. Tooth Whitening, Root Canal, Orthodontic Prep"
                   value={form.name}
                   onChange={handleInputChange}
-                  className="w-full bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A3E1]"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A3E1] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
               </div>
 
               {/* Category */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Category</label>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Category</label>
                 <select
                   name="category"
                   value={form.category}
                   onChange={handleInputChange}
-                  className="w-full bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A3E1]"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A3E1] text-slate-900 dark:text-white"
                 >
                   <option value="General">General Dentistry</option>
                   <option value="Orthodontics">Orthodontics</option>
@@ -291,8 +293,8 @@ export default function TreatmentCatalog({ onAlert }) {
 
               {/* Cost */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Default Cost ($) <span className="text-rose-500">*</span>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                  Default Cost (Rs) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -303,7 +305,7 @@ export default function TreatmentCatalog({ onAlert }) {
                   placeholder="e.g. 150.00"
                   value={form.defaultCost}
                   onChange={handleInputChange}
-                  className="w-full bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A3E1]"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A3E1] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
               </div>
 
@@ -315,7 +317,7 @@ export default function TreatmentCatalog({ onAlert }) {
                   id="isActive"
                   checked={form.isActive}
                   onChange={handleInputChange}
-                  className="w-4 h-4 rounded border-slate-300 text-[#0A567D] focus:ring-[#00A3E1] cursor-pointer"
+                  className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-[#0A567D] dark:text-[#00A3E1] focus:ring-[#00A3E1] cursor-pointer"
                 />
                 <label htmlFor="isActive" className="text-sm font-semibold text-slate-600 dark:text-slate-400 cursor-pointer">
                   Mark as Active catalog offering
@@ -327,14 +329,14 @@ export default function TreatmentCatalog({ onAlert }) {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-sm font-medium text-slate-600 dark:text-slate-400 rounded-lg cursor-pointer"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 text-sm font-medium text-slate-600 dark:text-slate-400 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-[#0A567D] hover:bg-[#084767] text-white text-sm font-medium rounded-lg shadow-sm disabled:bg-slate-300 cursor-pointer"
+                  className="px-4 py-2 bg-[#0A567D] hover:bg-[#084767] dark:bg-[#00A3E1] dark:hover:bg-[#00A3E1]/80 text-white text-sm font-medium rounded-lg shadow-sm disabled:bg-slate-300 dark:disabled:bg-slate-700 cursor-pointer"
                 >
                   {submitting ? 'Saving...' : 'Save Treatment'}
                 </button>
