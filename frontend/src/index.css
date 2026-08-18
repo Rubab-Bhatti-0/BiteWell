@@ -218,3 +218,80 @@ textarea::placeholder {
     background-position: -200% 0;
   }
 }
+
+
+/* DentalPay cinematic login system */
+.login-stage {
+  --pointer-x: 0px;
+  --pointer-y: 0px;
+  isolation: isolate;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.login-stage .font-serif,
+.login-stage h1,
+.login-stage p.font-serif {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.medical-grid {
+  background-image: linear-gradient(rgba(211, 247, 250, .12) 1px, transparent 1px), linear-gradient(90deg, rgba(211, 247, 250, .12) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, transparent, black 20%, black 78%, transparent);
+  transform: translate3d(var(--pointer-x), var(--pointer-y), 0) scale(1.06);
+  transition: transform 1s cubic-bezier(.23, 1, .32, 1);
+}
+
+.noise-layer {
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+
+.login-particle {
+  position: absolute;
+  left: var(--left, 0);
+  top: var(--top, 0);
+  width: var(--size, 3px);
+  height: var(--size, 3px);
+  border-radius: 999px;
+  background: rgba(205, 248, 250, .85);
+  box-shadow: 0 0 18px rgba(0, 163, 225, .78);
+  animation: particle-drift var(--duration, 8s) ease-in-out var(--delay, 0s) infinite alternate;
+  transform: translate3d(0, 0, 0);
+}
+
+.cinematic-input {
+  width: 100%;
+  border: 1px solid rgba(223, 243, 250, .17);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .055);
+  color: #fff;
+  outline: none;
+  padding: .95rem 1.1rem;
+  font-size: .875rem;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.cinematic-input::placeholder { color: rgba(255, 255, 255, .28); }
+.cinematic-input:hover { border-color: rgba(223, 243, 250, .35); }
+.cinematic-input:focus { border-color: rgba(0, 163, 225, .9); background: rgba(255, 255, 255, .1); box-shadow: 0 0 0 4px rgba(0, 163, 225, .12), 0 0 30px rgba(0, 163, 225, .12); }
+
+.energy-button { box-shadow: 0 0 0 1px rgba(223, 243, 250, .08), 0 14px 45px rgba(0, 163, 225, .18); }
+.energy-button:hover { box-shadow: 0 0 0 1px rgba(223, 243, 250, .2), 0 18px 60px rgba(0, 163, 225, .32); }
+
+@keyframes particle-drift {
+  0% { opacity: .18; transform: translate3d(0, 12px, 0) scale(.7); }
+  50% { opacity: .9; }
+  100% { opacity: .25; transform: translate3d(18px, -42px, 0) scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-particle, .orbit-ring { animation: none !important; }
+  .medical-grid { transform: none; transition: none; }
+  .login-stage * { scroll-behavior: auto !important; }
+}
+
+@media (max-width: 640px) {
+  .medical-grid { background-size: 28px 28px; }
+}
